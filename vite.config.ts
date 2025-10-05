@@ -14,6 +14,7 @@ const terserOptions = {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/islamisches-quiz-lern-app/',
   plugins: [
     vue(),
     vueDevTools(),
