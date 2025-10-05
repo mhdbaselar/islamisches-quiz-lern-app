@@ -1,0 +1,105 @@
+@layer components {
+  .ui-modal__overlay {
+    @apply fixed inset-0 z-[1000] grid place-items-center bg-black/50 p-4;
+  }
+
+  .ui-modal__dialog {
+    @apply grid max-h-[90vh] min-w-0 grid-rows-[auto_1fr_auto] rounded-xl border text-foreground;
+    box-shadow: var(--shadow-strong);
+    overflow: hidden;
+  }
+
+  .ui-modal__header {
+    @apply flex items-center justify-between gap-3 border-b border-border px-4 py-3;
+  }
+
+  .ui-modal__content {
+    @apply max-h-[60vh] overflow-auto px-4 py-3;
+  }
+
+  .ui-modal__footer {
+    @apply border-t border-border px-4 py-3;
+  }
+
+  .settings-grid {
+    @apply grid gap-4;
+  }
+
+  .settings-card {
+    @apply grid gap-4;
+  }
+
+  .settings-card__content {
+    @apply flex items-start justify-between gap-4;
+  }
+
+  .settings-card__content--stacked {
+    @apply flex-col md:flex-row md:items-center;
+  }
+
+  .settings-card__text {
+    @apply grid gap-1;
+  }
+
+  .settings-card__title {
+    @apply m-0 text-base font-semibold text-foreground;
+  }
+
+  .settings-card__subtitle {
+    @apply m-0 text-sm text-muted-foreground;
+  }
+
+  .settings-card__actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .settings-card__action {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .pin-form__grid {
+    @apply grid gap-4;
+  }
+
+  .pin-form__field {
+    @apply flex flex-col gap-2;
+  }
+
+  .pin-form__label {
+    @apply text-sm font-medium;
+  }
+
+  .pin-form__input {
+    @apply rounded-md border px-3 py-2 text-sm bg-background;
+  }
+
+  .pin-form__error {
+    @apply text-sm text-red-500;
+  }
+
+  .pin-form__success {
+    @apply text-sm text-emerald-500;
+  }
+
+  .settings-card__icon {
+    @apply h-4 w-4;
+  }
+
+  .settings-card__select {
+    @apply min-w-[140px];
+  }
+
+  @media (max-width: 600px) {
+    .settings-card__content {
+      @apply flex-col items-stretch;
+    }
+
+    .settings-card__actions {
+      @apply w-full justify-start;
+    }
+
+    .settings-card__action {
+      @apply w-full justify-center;
+    }
+  }
+}

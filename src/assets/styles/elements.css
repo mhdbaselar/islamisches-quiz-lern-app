@@ -1,0 +1,164 @@
+a,
+.green {
+  text-decoration: none;
+  color: var(--brand-accent);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: var(--brand-accent-weak);
+  }
+}
+
+/* Global UI primitives */
+button {
+  cursor: pointer;
+}
+
+/* Form Controls */
+input,
+select,
+textarea,
+.input {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--foreground);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.input {
+  padding: 0.35rem 0.5rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.input:focus {
+  outline: 2px solid color-mix(in oklab, var(--brand-accent) 50%, transparent);
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-accent) 20%, transparent);
+}
+
+/* Buttons - shared base */
+.btn,
+.icon-btn,
+.chip,
+.tab-btn {
+  @apply rounded-lg border border-border;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn {
+  @apply text-foreground px-[0.7rem] py-[0.4rem];
+  background: color-mix(in oklab, var(--brand-accent) 16%, var(--background));
+  border-color: color-mix(in oklab, var(--brand-accent) 28%, var(--color-border));
+}
+.btn:hover {
+  background: color-mix(in oklab, var(--brand-accent) 32%, var(--background));
+  border-color: color-mix(in oklab, var(--brand-accent) 44%, var(--color-border));
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-accent) 25%, transparent);
+}
+.btn.primary {
+  @apply bg-primary text-primary-foreground border-primary;
+}
+.btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.icon-btn {
+  @apply bg-transparent rounded-md px-[0.4rem] py-[0.25rem];
+}
+.icon-btn:hover {
+  background: var(--color-background-soft);
+}
+
+/* Panels / Cards (reusable container) */
+.panel {
+  @apply text-card-foreground border p-4;
+  border-radius: var(--radius, 0.5rem);
+}
+
+.panel:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-strong);
+}
+
+/* Simple grids for cards */
+.stack-grid {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Badges */
+.badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--color-border);
+}
+.badge.ok {
+  background: color-mix(in oklab, var(--chart-correct, #16a34a) 15%, transparent);
+  color: var(--chart-correct, #16a34a);
+}
+.badge.bad {
+  background: color-mix(in oklab, var(--chart-wrong, #dc2626) 15%, transparent);
+  color: var(--chart-wrong, #dc2626);
+}
+
+/* Text helpers */
+.muted,
+.text-muted {
+  @apply text-muted-foreground;
+}
+
+/* Chips & Tabs */
+.chip {
+  @apply bg-background rounded-full px-[0.65rem] py-[0.35rem];
+}
+.chip:hover {
+  background: color-mix(in oklab, var(--brand-accent-weak) 50%, var(--color-background));
+  border-color: var(--color-border-hover);
+}
+.chip.active {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-accent) 30%, transparent);
+}
+
+.tab-btn {
+  @apply bg-background px-[0.7rem] py-[0.4rem];
+}
+.tab-btn:hover {
+  background: var(--color-background-soft);
+}
+.tab-btn.active {
+  border-color: var(--brand-accent);
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--brand-accent) 25%, transparent);
+}
+
+.save-question-manager {
+  @apply flex w-full justify-end gap-2;
+}
+
+/* Footer helpers */
+.modal-footer-split,
+.footer-split {
+  @apply flex w-full items-center justify-between gap-2;
+}
+.modal-footer-split .left,
+.modal-footer-split .right,
+.footer-split .left,
+.footer-split .right {
+  @apply flex gap-2;
+}

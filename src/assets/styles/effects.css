@@ -1,0 +1,30 @@
+@supports (backdrop-filter: blur(1px)) {
+  .panel,
+  .app-card,
+  .quiz-mode__stack-card,
+  .quiz-manage__node,
+  .quiz-manager__item,
+  .quiz-runner,
+  .ui-modal__dialog {
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .panel:hover,
+  .app-card,
+  .app-card:hover,
+  .quiz-mode__stack-card,
+  .quiz-mode__stack-card:hover,
+  .quiz-manage__node,
+  .quiz-manage__node:hover,
+  .quiz-manager__item,
+  .quiz-manager__item:hover,
+  .quiz-runner,
+  .ui-modal__dialog {
+    transition: none !important;
+    transform: none !important;
+  }
+}

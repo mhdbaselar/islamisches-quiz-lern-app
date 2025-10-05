@@ -1,0 +1,314 @@
+@layer components {
+  .app-layout {
+    @apply grid min-h-screen grid-rows-[auto_1fr_auto];
+  }
+
+  .app-header {
+    @apply flex items-center justify-between border-b border-border bg-[var(--color-background-soft)] px-4 py-3;
+  }
+
+  .app-brand {
+    @apply inline-flex items-center gap-2 font-semibold text-foreground no-underline;
+  }
+
+  .app-brand__logo {
+    @apply block;
+  }
+
+  .app-nav {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .app-header__actions {
+    @apply flex items-center gap-2;
+  }
+
+  .app-header__mobile-toggle {
+    @apply hidden items-center justify-center rounded-md border border-border bg-background p-2 text-foreground transition-colors;
+  }
+
+  .app-header__mobile-toggle:hover,
+  .app-header__mobile-toggle:focus-visible {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  .app-nav__list {
+    @apply m-0 list-none flex flex-wrap items-center gap-2 p-0;
+  }
+
+  .app-nav__item {
+    @apply relative;
+  }
+
+  .app-nav__item--dropdown {
+    @apply flex items-center gap-1;
+  }
+
+  .app-nav__link {
+    @apply rounded-md border border-transparent px-2.5 py-1.5 text-sm font-medium transition-colors;
+  }
+
+  .app-nav__dropdown {
+    @apply relative inline-flex items-center gap-1 rounded-md border border-transparent;
+  }
+
+  .app-nav__toggle {
+    @apply inline-flex items-center justify-center rounded-md border border-transparent bg-transparent px-1 text-sm transition-colors;
+  }
+
+  .app-nav__submenu {
+    @apply hidden absolute left-0 top-full z-10 min-w-[180px] gap-1 rounded-lg border border-border bg-background p-2 shadow-lg;
+  }
+
+  .app-nav__dropdown:hover,
+  .app-nav__dropdown:focus-within {
+    border-color: var(--color-border-strong);
+  }
+
+  .app-nav__dropdown:hover .app-nav__link,
+  .app-nav__dropdown:focus-within .app-nav__link,
+  .app-nav__link:hover,
+  .app-nav__toggle:hover,
+  .app-nav__toggle:focus-visible {
+    border-color: var(--color-border-strong);
+  }
+
+  .app-nav__dropdown:hover .app-nav__submenu,
+  .app-nav__dropdown:focus-within .app-nav__submenu {
+    display: grid;
+  }
+
+  .app-nav__submenu a {
+    @apply rounded-md px-2.5 py-1.5 text-sm transition-colors;
+  }
+
+  .app-nav__submenu a:hover {
+    background: var(--color-background-soft);
+  }
+
+  .app-nav__mobile-overlay {
+    @apply fixed inset-0 z-[1100] flex bg-black/60 backdrop-blur-sm p-4;
+  }
+
+  .app-nav__mobile-panel {
+    @apply ml-auto flex h-full w-full max-w-sm flex-col rounded-l-2xl rounded-r-2xl border-l border-border bg-background text-foreground shadow-2xl;
+  }
+
+  .app-nav__mobile-header {
+    @apply flex items-center justify-between gap-3 border-b border-border px-4 py-3;
+  }
+
+  .app-nav__mobile-close {
+    @apply inline-flex items-center justify-center rounded-md border border-border bg-transparent p-2 text-foreground transition-colors;
+  }
+
+  .app-nav__mobile-close:hover,
+  .app-nav__mobile-close:focus-visible {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  .app-nav__mobile-menu {
+    @apply flex-1 overflow-y-auto px-4 py-4;
+  }
+
+  .app-nav__mobile-list {
+    @apply m-0 flex list-none flex-col gap-2 p-0;
+  }
+
+  .app-nav__mobile-item {
+    @apply flex flex-col gap-2;
+  }
+
+  .app-nav__mobile-link {
+    @apply rounded-lg border border-transparent px-3 py-2 text-base font-medium transition-colors;
+  }
+
+  .app-nav__mobile-link:hover,
+  .app-nav__mobile-link:focus-visible {
+    @apply border-border bg-accent text-accent-foreground;
+  }
+
+  .app-nav__mobile-submenu {
+    @apply flex flex-col gap-1;
+    border-inline-start: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent);
+    padding-inline-start: 0.75rem;
+    margin-inline-start: 0.75rem;
+  }
+
+  [dir='rtl'] .app-nav__mobile-submenu {
+    border-inline-start: none;
+    border-right: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent);
+    padding-inline-start: 0.75rem;
+    padding-inline-end: 0.75rem;
+    margin-inline-start: 0.75rem;
+    margin-inline-end: 0.75rem;
+    text-align: right;
+    direction: rtl;
+  }
+
+  .app-nav__mobile-sublink {
+    @apply rounded-md border border-transparent px-2 py-1 text-sm text-muted-foreground transition-colors;
+  }
+
+  .app-nav__mobile-sublink:hover,
+  .app-nav__mobile-sublink:focus-visible {
+    @apply border-border bg-background-soft text-foreground;
+  }
+
+  @media (max-width: 960px) {
+    .app-nav {
+      display: none;
+    }
+
+    .app-header__mobile-toggle {
+      @apply inline-flex;
+    }
+  }
+
+  .app-content {
+    @apply px-4 py-4;
+  }
+
+  .app-footer {
+    @apply border-t border-border px-4 py-4 text-center text-sm;
+  }
+
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.2s ease;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+
+  .app-page {
+    @apply mx-auto w-full max-w-5xl;
+  }
+
+  .page-title {
+    @apply mb-3 text-2xl font-bold;
+  }
+
+  .home-view {
+    @apply mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pb-10;
+  }
+
+  .home-view__hero {
+    @apply flex flex-col items-center gap-2 px-4 py-8 text-center;
+  }
+
+  .home-view__grid {
+    @apply grid gap-4 md:grid-cols-3;
+  }
+
+  .app-card {
+    @apply block rounded-xl border px-4 py-5;
+  }
+
+  .app-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-strong);
+  }
+
+  .app-card-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .app-card-grid--padded {
+    @apply p-4;
+  }
+
+  .page-heading {
+    @apply mb-6 space-y-2;
+  }
+
+  .page-heading__row {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .page-heading__title {
+    @apply m-0 flex items-center gap-2 text-2xl font-bold;
+  }
+
+  .page-heading__parent {
+    @apply text-lg font-semibold text-muted-foreground;
+  }
+
+  .page-heading__link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .page-heading__link:hover,
+  .page-heading__link:focus-visible {
+    color: var(--brand-accent);
+  }
+
+  .page-heading__link:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--brand-accent) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  .page-heading__separator {
+    @apply inline-flex items-center text-xl text-muted-foreground;
+  }
+
+  .page-heading__current {
+    @apply leading-tight;
+  }
+
+  .page-heading__actions {
+    @apply flex items-center gap-2;
+  }
+
+  .page-heading__description {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .chart-box {
+    @apply block h-80 w-full;
+    max-width: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .chart-box--tall {
+    @apply h-[22.5rem];
+  }
+
+  .chart-box__canvas {
+    @apply block h-full w-full;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .chart-box__canvas > * {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .chart-box__canvas canvas,
+  .chart-box__canvas svg {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .chart-box__canvas .echarts {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .chart-box__canvas .echarts > div,
+  .chart-box__canvas .echarts > canvas,
+  .chart-box__canvas .echarts > svg {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
