@@ -33,7 +33,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./public   # oder ./dist – je nachdem wo dein Build liegt!
+          path: ./dist   # oder ./public – je nachdem wo dein Build liegt!
 
   deploy:
     environment:
