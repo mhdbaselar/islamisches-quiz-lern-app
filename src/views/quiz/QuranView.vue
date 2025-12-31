@@ -8,6 +8,6 @@ const { t } = useI18n()
 <template>
   <section class="app-page">
     <PageHeading :title="t('nav.quran')" :title-to="{ name: 'quran' }" />
-    <p class="text-muted-foreground">Hier kannst du später Suren lesen und ggf. Audio einbetten.</p>
+    <p class="text-muted-foreground">Hier werden später Suren angezeigt und Audio eingebettet.</p>
   </section>
 </template>
