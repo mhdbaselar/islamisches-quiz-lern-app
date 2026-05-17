@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useStorage } from '@vueuse/core'
 import PageHeading from '@/components/ui/PageHeading.vue'
@@ -20,6 +20,9 @@ const UTHMANIC_HAFS_FONT_FAMILY = 'UthmanicHafs'
 const UTHMANIC_HAFS_FONT_URL = 'https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2'
 const QCF_V2_FONT_FAMILY_PREFIX = 'QCFV2Page'
 const QCF_V2_FONT_URL_PREFIX = 'https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p'
+const MUSHAF_TARGET_FILL_RATIO = 0.95
+const MUSHAF_SCALE_MIN = 0.92
+const MUSHAF_SCALE_MAX = 1.75
 
 type QuranTextMode = 'arabic' | 'standard'
 
@@ -37,10 +40,12 @@ const chaptersLoading = ref(false)
 const chaptersError = ref<string | null>(null)
 const isMobile = ref(false)
 const pageFontReady = ref<Record<number, boolean>>({})
+const mushafScaleByPage = ref<Record<number, number>>({})
 
 let mediaQueryList: MediaQueryList | null = null
 let abortController: AbortController | null = null
 let chaptersAbortController: AbortController | null = null
+let pendingMushafScaleFrame: number | null = null
 let unicodeFontReady = false
 let pendingUnicodeFontLoad: Promise<boolean> | null = null
 const loadedQcfV2Pages = new Set<number>()
@@ -120,6 +125,92 @@ function getPageQcfV2FontFamily(pageNumber: number) {
   return `${QCF_V2_FONT_FAMILY_PREFIX}-${pageNumber}`
 }
 
+function clampScale(value: number): number {
+  return Math.max(MUSHAF_SCALE_MIN, Math.min(MUSHAF_SCALE_MAX, value))
+}
+
+function parsePageNumber(value: string | undefined): number | null {
+  if (!value) return null
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+function measureMushafScaleForGrid(gridElement: HTMLElement): number {
+  const lineElements = Array.from(gridElement.querySelectorAll<HTMLElement>('.quran-page__mushaf-line'))
+  const firstLine = lineElements[0]
+  const lineWidth = firstLine?.clientWidth ?? gridElement.clientWidth
+  if (!lineWidth) return 1
+
+  const allLineContents = Array.from(
+    gridElement.querySelectorAll<HTMLElement>('.quran-page__mushaf-line-content'),
+  )
+  if (!allLineContents.length) return 1
+
+  // Use word lines as primary sizing signal so repeated basmala/surah lines
+  // do not force the whole page to shrink.
+  const wordLineContents = allLineContents.filter((lineContent) =>
+    lineContent.closest('.quran-page__mushaf-line--words'))
+  const measuredLineContents = wordLineContents.length > 0 ? wordLineContents : allLineContents
+
+  let maxContentWidth = 0
+  for (const lineContent of measuredLineContents) {
+    maxContentWidth = Math.max(maxContentWidth, lineContent.scrollWidth)
+  }
+  if (!maxContentWidth) return 1
+
+  const targetWidth = lineWidth * MUSHAF_TARGET_FILL_RATIO
+  const scaleByWidth = targetWidth / maxContentWidth
+
+  let scaleByHeight = Number.POSITIVE_INFINITY
+  for (const lineContent of measuredLineContents) {
+    const lineElement = lineContent.closest('.quran-page__mushaf-line')
+    if (!(lineElement instanceof HTMLElement)) continue
+
+    const availableHeight = lineElement.clientHeight
+    const contentHeight = lineContent.scrollHeight
+    if (!availableHeight || !contentHeight) continue
+
+    const targetHeight = availableHeight * 0.985
+    if (contentHeight <= targetHeight) continue
+    scaleByHeight = Math.min(scaleByHeight, targetHeight / contentHeight)
+  }
+
+  const limitingScale = Number.isFinite(scaleByHeight)
+    ? Math.min(scaleByWidth, scaleByHeight)
+    : scaleByWidth
+  return clampScale(limitingScale)
+}
+
+function updateMushafScaleFromDom() {
+  if (typeof document === 'undefined') return
+  if (!isArabicReadingMode.value) {
+    mushafScaleByPage.value = {}
+    return
+  }
+
+  const nextScaleByPage: Record<number, number> = {}
+  const grids = document.querySelectorAll<HTMLElement>('.quran-page__mushaf-grid[data-page-number]')
+  for (const grid of grids) {
+    const pageNumber = parsePageNumber(grid.dataset.pageNumber)
+    if (!pageNumber) continue
+    nextScaleByPage[pageNumber] = measureMushafScaleForGrid(grid)
+  }
+
+  mushafScaleByPage.value = nextScaleByPage
+}
+
+function scheduleMushafScaleUpdate() {
+  if (typeof window === 'undefined') return
+  if (pendingMushafScaleFrame !== null) {
+    window.cancelAnimationFrame(pendingMushafScaleFrame)
+  }
+
+  pendingMushafScaleFrame = window.requestAnimationFrame(() => {
+    pendingMushafScaleFrame = null
+    updateMushafScaleFromDom()
+  })
+}
+
 async function ensureUnicodeFont(): Promise<boolean> {
   if (unicodeFontReady) return true
   if (!canUseFontFaceApi()) return false
@@ -188,6 +279,10 @@ async function ensureMushafFontsForPages(pageNumbers: number[]) {
   if (!isArabicReadingMode.value) return
   await ensureUnicodeFont()
   await Promise.all(pageNumbers.map((pageNumber) => ensureQcfV2PageFont(pageNumber)))
+}
+
+function getMushafGridStyle(pageNumber: number): Record<string, string> {
+  return { '--mushaf-scale': String(mushafScaleByPage.value[pageNumber] ?? 1) }
 }
 
 function getMushafLayout(pageNumber: number) {
@@ -322,7 +417,14 @@ async function loadPages() {
 
     if (controller.signal.aborted) return
     pages.value = loadedPages
-    void ensureMushafFontsForPages(requestedPages)
+    await nextTick()
+    scheduleMushafScaleUpdate()
+
+    void ensureMushafFontsForPages(requestedPages).then(async () => {
+      if (controller.signal.aborted) return
+      await nextTick()
+      scheduleMushafScaleUpdate()
+    })
   } catch (err) {
     if (controller.signal.aborted) return
     pages.value = []
@@ -349,8 +451,17 @@ watch(
 watch(
   [isArabicReadingMode, displayPages],
   ([isArabic]) => {
-    if (!isArabic) return
-    void ensureMushafFontsForPages(displayPages.value.map((page) => page.pageNumber))
+    if (!isArabic) {
+      mushafScaleByPage.value = {}
+      return
+    }
+    void nextTick().then(() => {
+      scheduleMushafScaleUpdate()
+    })
+    void ensureMushafFontsForPages(displayPages.value.map((page) => page.pageNumber)).then(async () => {
+      await nextTick()
+      scheduleMushafScaleUpdate()
+    })
   },
   { immediate: true },
 )
@@ -365,6 +476,7 @@ watch(
 
 onMounted(() => {
   void ensureUnicodeFont()
+  window.addEventListener('resize', scheduleMushafScaleUpdate)
 
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return
@@ -383,6 +495,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   abortController?.abort()
   chaptersAbortController?.abort()
+  window.removeEventListener('resize', scheduleMushafScaleUpdate)
+  if (pendingMushafScaleFrame !== null && typeof window !== 'undefined') {
+    window.cancelAnimationFrame(pendingMushafScaleFrame)
+  }
 
   if (!mediaQueryList) return
   if (typeof mediaQueryList.removeEventListener === 'function') {
@@ -518,7 +634,13 @@ onBeforeUnmount(() => {
 
         <div v-if="pageData.verses.length" class="quran-page__verses">
           <template v-if="isArabicReadingMode">
-            <div class="quran-page__mushaf-grid" dir="rtl" translate="no">
+            <div
+              class="quran-page__mushaf-grid"
+              :data-page-number="String(pageData.pageNumber)"
+              :style="getMushafGridStyle(pageData.pageNumber)"
+              dir="rtl"
+              translate="no"
+            >
               <p
                 v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
                 :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
@@ -530,13 +652,15 @@ onBeforeUnmount(() => {
                 }"
               >
                 <template v-if="line.tokens.length">
-                  <span
-                    v-for="(token, tokenIndex) in line.tokens"
-                    :key="getMushafTokenKey(token, tokenIndex)"
-                    :class="getMushafTokenClass(token)"
-                    :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                  >
-                    {{ token.text }}
+                  <span class="quran-page__mushaf-line-content">
+                    <span
+                      v-for="(token, tokenIndex) in line.tokens"
+                      :key="getMushafTokenKey(token, tokenIndex)"
+                      :class="getMushafTokenClass(token)"
+                      :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                    >
+                      {{ token.text }}
+                    </span>
                   </span>
                 </template>
                 <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
