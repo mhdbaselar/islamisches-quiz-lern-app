@@ -149,6 +149,9 @@ export default {
   quran: {
     subtitle: 'اقرأ القرآن صفحة بصفحة بنمط المصحف.',
     mode: 'نمط القراءة',
+    textMode: 'عرض النص',
+    textModeArabic: 'الوضع العربي',
+    textModeStandard: 'الوضع القياسي',
     single: 'صفحة واحدة',
     spread: 'صفحتان',
     mobileSpreadHint: 'على الشاشات الصغيرة يتوفر نمط الصفحة الواحدة فقط.',

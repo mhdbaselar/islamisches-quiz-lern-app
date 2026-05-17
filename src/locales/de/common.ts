@@ -149,6 +149,9 @@ export default {
   quran: {
     subtitle: 'Lies den Quran seitenweise im Mushaf-Modus.',
     mode: 'Lesemodus',
+    textMode: 'Textdarstellung',
+    textModeArabic: 'Arabischer Modus',
+    textModeStandard: 'Standard-Modus',
     single: 'Einzelseite',
     spread: 'Buchmodus',
     mobileSpreadHint: 'Auf kleinen Bildschirmen ist nur die Einzelseite aktiv.',

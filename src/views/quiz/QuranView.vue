@@ -15,9 +15,12 @@ import {
 const { t, locale } = useI18n()
 const provider = new LegacyQuranProvider()
 
+type QuranTextMode = 'arabic' | 'standard'
+
 const currentPage = ref(1)
 const pageInput = ref('1')
 const readingMode = ref<QuranReadingMode>('single')
+const textMode = ref<QuranTextMode>(locale.value === 'ar' ? 'arabic' : 'standard')
 const showTranslation = ref(true)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -28,11 +31,18 @@ let mediaQueryList: MediaQueryList | null = null
 let abortController: AbortController | null = null
 
 const effectiveMode = computed<QuranReadingMode>(() => (isMobile.value ? 'single' : readingMode.value))
+const isArabicReadingMode = computed(() => textMode.value === 'arabic')
 const visiblePageNumbers = computed(() => getVisibleQuranPages(currentPage.value, readingMode.value, isMobile.value))
 const canGoPrev = computed(() =>
   getPreviousQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
 const canGoNext = computed(() =>
   getNextQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
+const displayPages = computed(() => {
+  if (isArabicReadingMode.value && effectiveMode.value === 'spread' && pages.value.length > 1) {
+    return [...pages.value].reverse()
+  }
+  return pages.value
+})
 
 const pageIndicator = computed(() => {
   if (effectiveMode.value === 'spread' && visiblePageNumbers.value.length === 2) {
@@ -52,6 +62,10 @@ function selectMode(mode: QuranReadingMode) {
   readingMode.value = mode
 }
 
+function selectTextMode(mode: QuranTextMode) {
+  textMode.value = mode
+}
+
 function goPrev() {
   currentPage.value = getPreviousQuranPage(currentPage.value, readingMode.value, isMobile.value)
 }
@@ -67,6 +81,14 @@ function applyPageInput() {
     return
   }
   currentPage.value = clampQuranPage(parsed)
+}
+
+function formatArabicAyahNumber(verseNumber: number) {
+  return new Intl.NumberFormat('ar-u-nu-arab', { useGrouping: false }).format(verseNumber)
+}
+
+function formatAyahMarker(verseNumber: number) {
+  return `﴿${formatArabicAyahNumber(verseNumber)}﴾`
 }
 
 async function loadPages() {
@@ -165,6 +187,28 @@ onBeforeUnmount(() => {
           <p v-if="isMobile" class="quran-mobile-hint">{{ t('quran.mobileSpreadHint') }}</p>
         </div>
 
+        <div class="quran-controls__mode">
+          <p class="quran-controls__label">{{ t('quran.textMode') }}</p>
+          <div class="quran-toggle-group">
+            <button
+              type="button"
+              class="chip"
+              :class="{ active: textMode === 'arabic' }"
+              @click="selectTextMode('arabic')"
+            >
+              {{ t('quran.textModeArabic') }}
+            </button>
+            <button
+              type="button"
+              class="chip"
+              :class="{ active: textMode === 'standard' }"
+              @click="selectTextMode('standard')"
+            >
+              {{ t('quran.textModeStandard') }}
+            </button>
+          </div>
+        </div>
+
         <label class="quran-controls__toggle">
           <input v-model="showTranslation" type="checkbox" />
           <span>{{ t('quran.translationToggle') }}</span>
@@ -209,7 +253,7 @@ onBeforeUnmount(() => {
       :class="{ 'quran-reader--spread': effectiveMode === 'spread' && visiblePageNumbers.length > 1 }"
     >
       <article
-        v-for="pageData in pages"
+        v-for="pageData in displayPages"
         :key="pageData.pageNumber"
         class="quran-page"
         translate="no"
@@ -219,11 +263,30 @@ onBeforeUnmount(() => {
         </header>
 
         <div v-if="pageData.verses.length" class="quran-page__verses">
-          <section v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-verse">
-            <p class="quran-verse__arabic" dir="rtl" translate="no">{{ verse.textUthmani }}</p>
-            <p v-if="showTranslation && verse.translation" class="quran-verse__translation">{{ verse.translation }}</p>
-            <p class="quran-verse__meta">{{ verse.verseKey }}</p>
-          </section>
+          <template v-if="isArabicReadingMode">
+            <p class="quran-page__arabic-flow" dir="rtl" translate="no">
+              <template v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`">
+                <span class="quran-page__arabic-chunk">
+                  {{ verse.textUthmani }}
+                  <span class="quran-ayah-marker">{{ formatAyahMarker(verse.verseNumber) }}</span>
+                </span>
+              </template>
+            </p>
+            <div v-if="showTranslation" class="quran-page__translations">
+              <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
+                <span class="quran-page__translation-key">{{ verse.verseKey }}</span>
+                <span>{{ verse.translation ?? '—' }}</span>
+              </p>
+            </div>
+          </template>
+
+          <template v-else>
+            <section v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-verse">
+              <p class="quran-verse__arabic" dir="rtl" translate="no">{{ verse.textUthmani }}</p>
+              <p v-if="showTranslation && verse.translation" class="quran-verse__translation">{{ verse.translation }}</p>
+              <p class="quran-verse__meta">{{ verse.verseKey }}</p>
+            </section>
+          </template>
         </div>
 
         <p v-else class="quran-page__empty">{{ t('quran.empty') }}</p>

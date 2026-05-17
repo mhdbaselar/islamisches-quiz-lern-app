@@ -149,6 +149,9 @@ export default {
   quran: {
     subtitle: 'Read the Quran page by page in Mushaf mode.',
     mode: 'Reading mode',
+    textMode: 'Text layout',
+    textModeArabic: 'Arabic mode',
+    textModeStandard: 'Standard mode',
     single: 'Single page',
     spread: 'Book spread',
     mobileSpreadHint: 'On small screens, only single-page mode is available.',
