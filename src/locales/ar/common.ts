@@ -156,6 +156,7 @@ export default {
     spread: 'صفحتان',
     mobileSpreadHint: 'على الشاشات الصغيرة يتوفر نمط الصفحة الواحدة فقط.',
     translationToggle: 'إظهار الترجمة',
+    flipSpreadToggle: 'عكس ترتيب الصفحتين في وضع الكتاب',
     page: 'الصفحة',
     prev: 'السابق',
     next: 'التالي',

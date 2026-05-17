@@ -156,6 +156,7 @@ export default {
     spread: 'Book spread',
     mobileSpreadHint: 'On small screens, only single-page mode is available.',
     translationToggle: 'Show translation',
+    flipSpreadToggle: 'Flip spread page order',
     page: 'Page',
     prev: 'Previous',
     next: 'Next',

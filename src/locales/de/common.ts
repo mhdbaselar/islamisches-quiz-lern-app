@@ -156,6 +156,7 @@ export default {
     spread: 'Buchmodus',
     mobileSpreadHint: 'Auf kleinen Bildschirmen ist nur die Einzelseite aktiv.',
     translationToggle: 'Übersetzung anzeigen',
+    flipSpreadToggle: 'Seiten im Buchmodus umdrehen',
     page: 'Seite',
     prev: 'Zurück',
     next: 'Weiter',

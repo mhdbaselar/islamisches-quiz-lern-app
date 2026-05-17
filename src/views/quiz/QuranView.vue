@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useStorage } from '@vueuse/core'
 import PageHeading from '@/components/ui/PageHeading.vue'
 import type { QuranPageData } from '@/services/quran/provider'
 import { LegacyQuranProvider } from '@/services/quran/provider'
@@ -21,6 +22,7 @@ const currentPage = ref(1)
 const pageInput = ref('1')
 const readingMode = ref<QuranReadingMode>('single')
 const textMode = ref<QuranTextMode>(locale.value === 'ar' ? 'arabic' : 'standard')
+const reverseSpreadPages = useStorage<boolean>('app.quran.reverseSpread.v1', true)
 const showTranslation = ref(true)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -37,8 +39,9 @@ const canGoPrev = computed(() =>
   getPreviousQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
 const canGoNext = computed(() =>
   getNextQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
+const shouldReverseSpreadPages = computed(() => effectiveMode.value === 'spread' && reverseSpreadPages.value)
 const displayPages = computed(() => {
-  if (isArabicReadingMode.value && effectiveMode.value === 'spread' && pages.value.length > 1) {
+  if (shouldReverseSpreadPages.value && pages.value.length > 1) {
     return [...pages.value].reverse()
   }
   return pages.value
@@ -212,6 +215,11 @@ onBeforeUnmount(() => {
         <label class="quran-controls__toggle">
           <input v-model="showTranslation" type="checkbox" />
           <span>{{ t('quran.translationToggle') }}</span>
+        </label>
+
+        <label class="quran-controls__toggle">
+          <input v-model="reverseSpreadPages" type="checkbox" />
+          <span>{{ t('quran.flipSpreadToggle') }}</span>
         </label>
       </div>
 
