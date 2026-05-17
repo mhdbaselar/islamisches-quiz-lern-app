@@ -71,6 +71,7 @@ describe('quran provider', () => {
       textUthmani: 'بِسْمِ',
       translation: 'Im Namen',
     })
+    expect(result.verses[0].words).toEqual([])
     expect(result.verses[1].translation).toBeNull()
   })
 
@@ -92,6 +93,87 @@ describe('quran provider', () => {
 
     const requestUrl = String(fetchMock.mock.calls[0]?.[0] ?? '')
     expect(requestUrl).not.toContain('translations=')
+  })
+
+  it('requests mushaf line metadata and maps words when enabled', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      void _input
+      void _init
+      return jsonResponse({
+        verses: [
+          {
+            id: 8,
+            verse_key: '2:1',
+            verse_number: 1,
+            page_number: 2,
+            text_uthmani: 'الٓمٓ',
+            words: [
+              {
+                position: 1,
+                line_number: 3,
+                page_number: 2,
+                char_type_name: 'word',
+                code_v2: 'ﰀ',
+                text_qpc_hafs: 'الٓمٓ',
+                text_uthmani: 'الٓمٓ',
+                verse_key: '2:1',
+              },
+              {
+                position: 2,
+                line_number: 3,
+                page_number: 2,
+                char_type_name: 'end',
+                code_v2: '',
+                text_qpc_hafs: '١',
+                text_uthmani: '١',
+                verse_key: '2:1',
+              },
+            ],
+            translations: [{ text: 'Alif Lam Mim' }],
+          },
+        ],
+      })
+    })
+
+    const provider = new LegacyQuranProvider({
+      fetchImpl: fetchMock as unknown as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+    })
+
+    const result = await provider.getPage({
+      pageNumber: 2,
+      locale: 'en',
+      showTranslation: true,
+      includeMushafWords: true,
+    })
+
+    const requestUrl = String(fetchMock.mock.calls[0]?.[0] ?? '')
+    expect(requestUrl).toContain('mushaf=1')
+    expect(requestUrl).toContain('words=true')
+    expect(requestUrl).toContain('word_fields=')
+    expect(requestUrl).toContain('code_v2')
+    expect(requestUrl).toContain('line_number')
+    expect(result.verses[0].words).toEqual([
+      {
+        position: 1,
+        lineNumber: 3,
+        pageNumber: 2,
+        charTypeName: 'word',
+        codeV2: 'ﰀ',
+        textQpcHafs: 'الٓمٓ',
+        textUthmani: 'الٓمٓ',
+        verseKey: '2:1',
+      },
+      {
+        position: 2,
+        lineNumber: 3,
+        pageNumber: 2,
+        charTypeName: 'end',
+        codeV2: '',
+        textQpcHafs: '١',
+        textUthmani: '١',
+        verseKey: '2:1',
+      },
+    ])
   })
 
   it('throws useful errors for failed and invalid responses', async () => {

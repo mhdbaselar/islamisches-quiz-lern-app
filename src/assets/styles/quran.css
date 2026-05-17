@@ -68,7 +68,8 @@
   .quran-page {
     @apply text-card-foreground border p-4;
     border-radius: var(--radius, 0.5rem);
-    min-height: 20rem;
+    container-type: inline-size;
+    min-height: 0;
   }
 
   .quran-page__header {
@@ -79,29 +80,76 @@
     @apply grid gap-3;
   }
 
-  .quran-page__arabic-flow {
+  .quran-page__mushaf-grid {
+    @apply grid;
+    grid-template-rows: repeat(15, minmax(0, 1fr));
+    height: clamp(20rem, 86cqi, 38rem);
+    overflow: visible;
+  }
+
+  .quran-page__mushaf-line {
+    display: block;
     direction: rtl;
+    padding-inline: clamp(0.12rem, 0.45cqi, 0.48rem);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
     text-align: justify;
-    font-family:
-      'Amiri',
-      'Noto Naskh Arabic',
-      'Scheherazade New',
-      serif;
-    font-size: clamp(1.5rem, 2.5vw, 2.1rem);
-    line-height: 2.35;
+    text-align-last: justify;
+    font-size: clamp(0.98rem, 2.05cqi, 1.62rem);
+    line-height: 1.18;
+  }
+
+  .quran-page__mushaf-line--label {
+    text-align: center;
+    text-align-last: center;
+  }
+
+  .quran-page__mushaf-line--words::after {
+    content: '';
+    display: inline-block;
+    width: 100%;
+  }
+
+  .quran-page__mushaf-token {
+    display: inline;
+    margin-inline-start: 0.09em;
+    padding-inline: 0.01em;
+    white-space: nowrap;
+  }
+
+  .quran-page__mushaf-token--end {
+    margin-inline: 0.06em 0.24em;
+    font-size: 0.86em;
+  }
+
+  .quran-page__mushaf-token--label {
+    font-size: 0.94em;
     letter-spacing: 0.01em;
   }
 
-  .quran-page__arabic-chunk {
-    margin-inline-end: 0.2rem;
+  .quran-page__mushaf-token--surah {
+    font-weight: 600;
   }
 
-  .quran-ayah-marker {
+  .quran-page__mushaf-token--basmala {
+    font-weight: 500;
+  }
+
+  .quran-page__mushaf-placeholder {
     display: inline-block;
-    margin-inline: 0.3rem 0.5rem;
-    color: color-mix(in oklab, var(--brand-accent) 80%, var(--foreground));
-    font-size: 0.85em;
-    white-space: nowrap;
+    min-width: 0.6em;
+  }
+
+  @supports not (width: 1cqi) {
+    .quran-page__mushaf-grid {
+      height: clamp(20rem, 54vw, 38rem);
+    }
+
+    .quran-page__mushaf-line {
+      padding-inline: clamp(0.12rem, 0.5vw, 0.48rem);
+      font-size: clamp(0.98rem, 1.8vw, 1.62rem);
+    }
   }
 
   .quran-page__translations {
@@ -168,6 +216,24 @@
 
     .quran-page-nav__select {
       @apply min-w-[180px] max-w-[100%];
+    }
+
+    .quran-page__mushaf-grid {
+      height: clamp(17rem, 92cqi, 26rem);
+    }
+
+    .quran-page__mushaf-line {
+      font-size: clamp(0.84rem, 3.6cqi, 1.12rem);
+    }
+
+    @supports not (width: 1cqi) {
+      .quran-page__mushaf-grid {
+        height: clamp(17rem, 78vw, 26rem);
+      }
+
+      .quran-page__mushaf-line {
+        font-size: clamp(0.84rem, 3.2vw, 1.12rem);
+      }
     }
   }
 }

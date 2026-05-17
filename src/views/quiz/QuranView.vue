@@ -5,6 +5,7 @@ import { useStorage } from '@vueuse/core'
 import PageHeading from '@/components/ui/PageHeading.vue'
 import type { QuranChapter, QuranPageData } from '@/services/quran/provider'
 import { LegacyQuranProvider } from '@/services/quran/provider'
+import { buildMushafPageLayout, type QuranMushafLineToken } from '@/services/quran/layout'
 import {
   clampQuranPage,
   getNextQuranPage,
@@ -15,6 +16,10 @@ import {
 
 const { t, locale } = useI18n()
 const provider = new LegacyQuranProvider()
+const UTHMANIC_HAFS_FONT_FAMILY = 'UthmanicHafs'
+const UTHMANIC_HAFS_FONT_URL = 'https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2'
+const QCF_V2_FONT_FAMILY_PREFIX = 'QCFV2Page'
+const QCF_V2_FONT_URL_PREFIX = 'https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p'
 
 type QuranTextMode = 'arabic' | 'standard'
 
@@ -31,10 +36,15 @@ const chapters = ref<QuranChapter[]>([])
 const chaptersLoading = ref(false)
 const chaptersError = ref<string | null>(null)
 const isMobile = ref(false)
+const pageFontReady = ref<Record<number, boolean>>({})
 
 let mediaQueryList: MediaQueryList | null = null
 let abortController: AbortController | null = null
 let chaptersAbortController: AbortController | null = null
+let unicodeFontReady = false
+let pendingUnicodeFontLoad: Promise<boolean> | null = null
+const loadedQcfV2Pages = new Set<number>()
+const pendingQcfFontLoads = new Map<number, Promise<boolean>>()
 
 const effectiveMode = computed<QuranReadingMode>(() => (isMobile.value ? 'single' : readingMode.value))
 const isArabicReadingMode = computed(() => textMode.value === 'arabic')
@@ -49,6 +59,26 @@ const displayPages = computed(() => {
     return [...pages.value].reverse()
   }
   return pages.value
+})
+const chapterNamesById = computed(() => {
+  const map = new Map<number, string>()
+  for (const chapter of chapters.value) {
+    if (!chapter.nameArabic) continue
+    map.set(chapter.id, chapter.nameArabic)
+  }
+  return map
+})
+const mushafLayoutsByPage = computed(() => {
+  const map = new Map<number, ReturnType<typeof buildMushafPageLayout>>()
+  for (const pageData of displayPages.value) {
+    map.set(
+      pageData.pageNumber,
+      buildMushafPageLayout(pageData, {
+        getSurahArabicName: (chapterId) => chapterNamesById.value.get(chapterId),
+      }),
+    )
+  }
+  return map
 })
 
 const pageIndicator = computed(() => {
@@ -77,6 +107,139 @@ const selectedSurahId = computed<string>({
   },
 })
 
+function canUseFontFaceApi() {
+  return (
+    typeof window !== 'undefined'
+    && typeof FontFace !== 'undefined'
+    && typeof document !== 'undefined'
+    && typeof document.fonts !== 'undefined'
+  )
+}
+
+function getPageQcfV2FontFamily(pageNumber: number) {
+  return `${QCF_V2_FONT_FAMILY_PREFIX}-${pageNumber}`
+}
+
+async function ensureUnicodeFont(): Promise<boolean> {
+  if (unicodeFontReady) return true
+  if (!canUseFontFaceApi()) return false
+  if (pendingUnicodeFontLoad) return pendingUnicodeFontLoad
+
+  pendingUnicodeFontLoad = (async () => {
+    try {
+      const fontFace = new FontFace(
+        UTHMANIC_HAFS_FONT_FAMILY,
+        `url("${UTHMANIC_HAFS_FONT_URL}") format("woff2")`,
+        { display: 'swap' },
+      )
+      const loadedFont = await fontFace.load()
+      document.fonts.add(loadedFont)
+      unicodeFontReady = true
+      return true
+    } catch {
+      return false
+    } finally {
+      pendingUnicodeFontLoad = null
+    }
+  })()
+
+  return pendingUnicodeFontLoad
+}
+
+async function ensureQcfV2PageFont(pageNumber: number): Promise<boolean> {
+  if (loadedQcfV2Pages.has(pageNumber)) {
+    pageFontReady.value = { ...pageFontReady.value, [pageNumber]: true }
+    return true
+  }
+  if (!canUseFontFaceApi()) {
+    pageFontReady.value = { ...pageFontReady.value, [pageNumber]: false }
+    return false
+  }
+
+  const existingLoad = pendingQcfFontLoads.get(pageNumber)
+  if (existingLoad) return existingLoad
+
+  const family = getPageQcfV2FontFamily(pageNumber)
+  const fontLoad = (async () => {
+    try {
+      const fontFace = new FontFace(
+        family,
+        `url("${QCF_V2_FONT_URL_PREFIX}${pageNumber}.woff2") format("woff2")`,
+        { display: 'swap' },
+      )
+      const loadedFont = await fontFace.load()
+      document.fonts.add(loadedFont)
+      loadedQcfV2Pages.add(pageNumber)
+      pageFontReady.value = { ...pageFontReady.value, [pageNumber]: true }
+      return true
+    } catch {
+      pageFontReady.value = { ...pageFontReady.value, [pageNumber]: false }
+      return false
+    } finally {
+      pendingQcfFontLoads.delete(pageNumber)
+    }
+  })()
+
+  pendingQcfFontLoads.set(pageNumber, fontLoad)
+  return fontLoad
+}
+
+async function ensureMushafFontsForPages(pageNumbers: number[]) {
+  if (!isArabicReadingMode.value) return
+  await ensureUnicodeFont()
+  await Promise.all(pageNumbers.map((pageNumber) => ensureQcfV2PageFont(pageNumber)))
+}
+
+function getMushafLayout(pageNumber: number) {
+  return mushafLayoutsByPage.value.get(pageNumber)
+}
+
+function getMushafTokenKey(token: QuranMushafLineToken, tokenIndex: number): string {
+  if (token.kind === 'word') {
+    return `word-${token.verseKey}-${token.position}-${tokenIndex}`
+  }
+  return `${token.kind}-${token.chapterId}-${tokenIndex}`
+}
+
+function getMushafTokenClass(token: QuranMushafLineToken) {
+  if (token.kind === 'word') {
+    return {
+      'quran-page__mushaf-token': true,
+      'quran-page__mushaf-token--end': token.charTypeName === 'end',
+    }
+  }
+  return {
+    'quran-page__mushaf-token': true,
+    'quran-page__mushaf-token--label': true,
+    'quran-page__mushaf-token--surah': token.kind === 'surah',
+    'quran-page__mushaf-token--basmala': token.kind === 'basmala',
+  }
+}
+
+function getMushafTokenStyle(token: QuranMushafLineToken, pageNumber: number) {
+  if (token.kind === 'word') {
+    if (token.charTypeName === 'end') {
+      return {
+        fontFamily: `"${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
+      }
+    }
+
+    if (pageFontReady.value[pageNumber]) {
+      return {
+        fontFamily: `"${getPageQcfV2FontFamily(pageNumber)}", "${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
+      }
+    }
+
+    return {
+      fontFamily: `"${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
+    }
+  }
+
+  return {
+    fontFamily: `"${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
+  }
+}
+
 function syncMobileLayout() {
   isMobile.value = mediaQueryList?.matches ?? false
 }
@@ -104,14 +267,6 @@ function applyPageInput() {
     return
   }
   currentPage.value = clampQuranPage(parsed)
-}
-
-function formatArabicAyahNumber(verseNumber: number) {
-  return new Intl.NumberFormat('ar-u-nu-arab', { useGrouping: false }).format(verseNumber)
-}
-
-function formatAyahMarker(verseNumber: number) {
-  return `﴿${formatArabicAyahNumber(verseNumber)}﴾`
 }
 
 function formatChapterLabel(chapter: QuranChapter) {
@@ -160,12 +315,14 @@ async function loadPages() {
         pageNumber,
         locale: locale.value,
         showTranslation: showTranslation.value,
+        includeMushafWords: isArabicReadingMode.value,
         signal: controller.signal,
       })),
     )
 
     if (controller.signal.aborted) return
     pages.value = loadedPages
+    void ensureMushafFontsForPages(requestedPages)
   } catch (err) {
     if (controller.signal.aborted) return
     pages.value = []
@@ -182,9 +339,18 @@ watch(currentPage, (nextPage) => {
 }, { immediate: true })
 
 watch(
-  [visiblePageNumbers, showTranslation, () => locale.value],
+  [visiblePageNumbers, showTranslation, isArabicReadingMode, () => locale.value],
   () => {
     void loadPages()
+  },
+  { immediate: true },
+)
+
+watch(
+  [isArabicReadingMode, displayPages],
+  ([isArabic]) => {
+    if (!isArabic) return
+    void ensureMushafFontsForPages(displayPages.value.map((page) => page.pageNumber))
   },
   { immediate: true },
 )
@@ -198,6 +364,8 @@ watch(
 )
 
 onMounted(() => {
+  void ensureUnicodeFont()
+
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return
   }
@@ -350,14 +518,30 @@ onBeforeUnmount(() => {
 
         <div v-if="pageData.verses.length" class="quran-page__verses">
           <template v-if="isArabicReadingMode">
-            <p class="quran-page__arabic-flow" dir="rtl" translate="no">
-              <template v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`">
-                <span class="quran-page__arabic-chunk">
-                  {{ verse.textUthmani }}
-                  <span class="quran-ayah-marker">{{ formatAyahMarker(verse.verseNumber) }}</span>
-                </span>
-              </template>
-            </p>
+            <div class="quran-page__mushaf-grid" dir="rtl" translate="no">
+              <p
+                v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
+                :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
+                class="quran-page__mushaf-line"
+                :class="{
+                  'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
+                  'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
+                  'quran-page__mushaf-line--empty': line.tokens.length === 0,
+                }"
+              >
+                <template v-if="line.tokens.length">
+                  <span
+                    v-for="(token, tokenIndex) in line.tokens"
+                    :key="getMushafTokenKey(token, tokenIndex)"
+                    :class="getMushafTokenClass(token)"
+                    :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                  >
+                    {{ token.text }}
+                  </span>
+                </template>
+                <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
+              </p>
+            </div>
             <div v-if="showTranslation" class="quran-page__translations">
               <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
                 <span class="quran-page__translation-key">{{ verse.verseKey }}</span>

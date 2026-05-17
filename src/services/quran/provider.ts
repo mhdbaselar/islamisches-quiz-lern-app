@@ -7,6 +7,18 @@ export interface QuranVerse {
   pageNumber: number
   textUthmani: string
   translation: string | null
+  words: QuranWord[]
+}
+
+export interface QuranWord {
+  position: number
+  lineNumber: number
+  pageNumber: number
+  charTypeName: string
+  codeV2: string
+  textQpcHafs: string
+  textUthmani: string
+  verseKey: string
 }
 
 export interface QuranPageData {
@@ -18,6 +30,7 @@ export interface QuranPageRequest {
   pageNumber: number
   locale: string
   showTranslation: boolean
+  includeMushafWords?: boolean
   signal?: AbortSignal
 }
 
@@ -59,6 +72,18 @@ type LegacyApiVerse = {
   page_number?: unknown
   text_uthmani?: unknown
   translations?: LegacyApiTranslation[]
+  words?: LegacyApiWord[]
+}
+
+type LegacyApiWord = {
+  position?: unknown
+  line_number?: unknown
+  page_number?: unknown
+  char_type_name?: unknown
+  code_v2?: unknown
+  text_qpc_hafs?: unknown
+  text_uthmani?: unknown
+  verse_key?: unknown
 }
 
 type LegacyApiResponse = {
@@ -108,6 +133,19 @@ function stripHtmlTags(value: string): string {
     .trim()
 }
 
+function mapLegacyWord(word: LegacyApiWord, fallbackPageNumber: number, fallbackVerseKey: string): QuranWord {
+  return {
+    position: parseNumber(word.position, 0),
+    lineNumber: parseNumber(word.line_number, 0),
+    pageNumber: parseNumber(word.page_number, fallbackPageNumber),
+    charTypeName: parseString(word.char_type_name).trim(),
+    codeV2: parseString(word.code_v2).trim(),
+    textQpcHafs: parseString(word.text_qpc_hafs).trim(),
+    textUthmani: parseString(word.text_uthmani).trim(),
+    verseKey: parseString(word.verse_key, fallbackVerseKey).trim(),
+  }
+}
+
 export class LegacyQuranProvider implements QuranProvider {
   private readonly baseUrl: string
   private readonly fetchImpl: FetchLike
@@ -128,6 +166,15 @@ export class LegacyQuranProvider implements QuranProvider {
       params.set('translations', String(getTranslationIdForLocale(request.locale)))
     }
 
+    if (request.includeMushafWords) {
+      params.set('mushaf', '1')
+      params.set('words', 'true')
+      params.set(
+        'word_fields',
+        'code_v2,text_qpc_hafs,text_uthmani,line_number,page_number,verse_key,position,char_type_name',
+      )
+    }
+
     const response = await this.fetchImpl(
       `${this.baseUrl}/verses/by_page/${pageNumber}?${params.toString()}`,
       { signal: request.signal },
@@ -145,16 +192,24 @@ export class LegacyQuranProvider implements QuranProvider {
     const verses = payload.verses
       .map((verse): QuranVerse | null => {
         const textUthmani = parseString(verse.text_uthmani).trim()
-        if (!textUthmani) return null
+        const verseKey = parseString(verse.verse_key).trim()
+        const mappedWords = Array.isArray(verse.words)
+          ? verse.words.map((word) => mapLegacyWord(word, pageNumber, verseKey))
+          : []
+        const words = request.includeMushafWords
+          ? mappedWords.filter((word) => word.lineNumber > 0 && word.pageNumber > 0)
+          : []
+        if (!textUthmani && words.length === 0) return null
 
         const translationText = parseString(verse.translations?.[0]?.text).trim()
         return {
           id: parseNumber(verse.id, 0),
-          verseKey: parseString(verse.verse_key),
+          verseKey,
           verseNumber: parseNumber(verse.verse_number, 0),
           pageNumber: parseNumber(verse.page_number, pageNumber),
-          textUthmani,
+          textUthmani: textUthmani || words.map((word) => word.textUthmani).join(' ').trim(),
           translation: translationText ? stripHtmlTags(translationText) : null,
+          words,
         }
       })
       .filter((verse): verse is QuranVerse => verse !== null)
