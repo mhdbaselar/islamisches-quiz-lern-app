@@ -1,0 +1,125 @@
+@layer components {
+  .quran-view {
+    @apply grid gap-4;
+  }
+
+  .quran-controls {
+    @apply grid gap-3 text-card-foreground border p-4;
+    border-radius: var(--radius, 0.5rem);
+  }
+
+  .quran-controls__top {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .quran-controls__mode {
+    @apply grid gap-2;
+  }
+
+  .quran-controls__label {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  .quran-controls__toggle {
+    @apply inline-flex items-center gap-2 text-sm text-foreground;
+  }
+
+  .quran-controls__toggle input {
+    accent-color: var(--brand-accent);
+  }
+
+  .quran-toggle-group {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .quran-mobile-hint {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .quran-page-nav {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .quran-page-nav__label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .quran-page-nav__input {
+    @apply w-20 text-center;
+  }
+
+  .quran-page-nav__max,
+  .quran-page-nav__indicator {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .quran-reader {
+    @apply grid gap-4;
+  }
+
+  .quran-reader--spread {
+    @apply md:grid-cols-2;
+  }
+
+  .quran-page {
+    @apply text-card-foreground border p-4;
+    border-radius: var(--radius, 0.5rem);
+    min-height: 20rem;
+  }
+
+  .quran-page__header {
+    @apply mb-3 border-b border-border pb-2 text-sm text-muted-foreground;
+  }
+
+  .quran-page__verses {
+    @apply grid gap-3;
+  }
+
+  .quran-verse {
+    @apply rounded-lg border border-border/60 p-3;
+    background: color-mix(in oklab, var(--color-card) 92%, var(--brand-accent) 8%);
+  }
+
+  .quran-verse__arabic {
+    direction: rtl;
+    font-family:
+      'Amiri',
+      'Noto Naskh Arabic',
+      'Scheherazade New',
+      serif;
+    font-size: clamp(1.35rem, 2.3vw, 1.9rem);
+    line-height: 2.1;
+    letter-spacing: 0.01em;
+  }
+
+  .quran-verse__translation {
+    @apply mt-2 text-sm leading-relaxed text-muted-foreground;
+  }
+
+  .quran-verse__meta {
+    @apply mt-2 text-xs text-muted-foreground;
+  }
+
+  .quran-page__empty {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .quran-state {
+    @apply flex flex-wrap items-center justify-between gap-2 text-sm text-card-foreground border p-4;
+    border-radius: var(--radius, 0.5rem);
+  }
+
+  .quran-state--error {
+    border-color: color-mix(in oklab, var(--destructive) 45%, var(--color-border));
+  }
+
+  @media (max-width: 640px) {
+    .quran-controls__top {
+      @apply items-start;
+    }
+
+    .quran-page-nav {
+      @apply gap-1;
+    }
+  }
+}
