@@ -21,8 +21,23 @@ export interface QuranPageRequest {
   signal?: AbortSignal
 }
 
+export interface QuranChapter {
+  id: number
+  nameSimple: string
+  nameArabic: string
+  translatedName: string
+  startPage: number
+  endPage: number
+}
+
+export interface QuranChaptersRequest {
+  locale?: string
+  signal?: AbortSignal
+}
+
 export interface QuranProvider {
   getPage(request: QuranPageRequest): Promise<QuranPageData>
+  getChapters(request?: QuranChaptersRequest): Promise<QuranChapter[]>
 }
 
 export const LEGACY_QURAN_API_BASE_URL = 'https://api.quran.com/api/v4'
@@ -48,6 +63,20 @@ type LegacyApiVerse = {
 
 type LegacyApiResponse = {
   verses?: LegacyApiVerse[]
+}
+
+type LegacyApiChapter = {
+  id?: unknown
+  name_simple?: unknown
+  name_arabic?: unknown
+  pages?: unknown
+  translated_name?: {
+    name?: unknown
+  }
+}
+
+type LegacyApiChaptersResponse = {
+  chapters?: LegacyApiChapter[]
 }
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
@@ -135,10 +164,65 @@ export class LegacyQuranProvider implements QuranProvider {
       verses,
     }
   }
+
+  async getChapters(request?: QuranChaptersRequest): Promise<QuranChapter[]> {
+    const params = new URLSearchParams()
+    const locale = request?.locale?.trim().toLowerCase()
+    if (locale) {
+      params.set('language', locale)
+    }
+
+    const response = await this.fetchImpl(
+      `${this.baseUrl}/chapters${params.toString() ? `?${params.toString()}` : ''}`,
+      { signal: request?.signal },
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to load chapters (status ${response.status})`)
+    }
+
+    const payload = await response.json() as LegacyApiChaptersResponse
+    if (!payload || !Array.isArray(payload.chapters)) {
+      throw new Error('Unexpected chapters response')
+    }
+
+    return payload.chapters
+      .map((chapter): QuranChapter | null => {
+        const id = parseNumber(chapter.id, 0)
+        const pageNumbers = Array.isArray(chapter.pages)
+          ? chapter.pages.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+          : []
+
+        if (id <= 0 || pageNumbers.length === 0) return null
+
+        const startPage = Math.min(...pageNumbers)
+        const endPage = Math.max(...pageNumbers)
+        if (startPage <= 0 || endPage <= 0) return null
+
+        const nameSimple = parseString(chapter.name_simple).trim()
+        const nameArabic = parseString(chapter.name_arabic).trim()
+        const translatedName = parseString(chapter.translated_name?.name).trim()
+
+        return {
+          id,
+          nameSimple,
+          nameArabic,
+          translatedName: translatedName || nameSimple,
+          startPage,
+          endPage,
+        }
+      })
+      .filter((chapter): chapter is QuranChapter => chapter !== null)
+      .sort((a, b) => a.id - b.id)
+  }
 }
 
 export class ProxyQuranProvider implements QuranProvider {
   async getPage(): Promise<QuranPageData> {
+    throw new Error('ProxyQuranProvider is not configured yet. Add a backend proxy for Quran.Foundation OAuth2.')
+  }
+
+  async getChapters(): Promise<QuranChapter[]> {
     throw new Error('ProxyQuranProvider is not configured yet. Add a backend proxy for Quran.Foundation OAuth2.')
   }
 }

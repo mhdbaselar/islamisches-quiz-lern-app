@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useStorage } from '@vueuse/core'
 import PageHeading from '@/components/ui/PageHeading.vue'
-import type { QuranPageData } from '@/services/quran/provider'
+import type { QuranChapter, QuranPageData } from '@/services/quran/provider'
 import { LegacyQuranProvider } from '@/services/quran/provider'
 import {
   clampQuranPage,
@@ -27,10 +27,14 @@ const showTranslation = ref(true)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const pages = ref<QuranPageData[]>([])
+const chapters = ref<QuranChapter[]>([])
+const chaptersLoading = ref(false)
+const chaptersError = ref<string | null>(null)
 const isMobile = ref(false)
 
 let mediaQueryList: MediaQueryList | null = null
 let abortController: AbortController | null = null
+let chaptersAbortController: AbortController | null = null
 
 const effectiveMode = computed<QuranReadingMode>(() => (isMobile.value ? 'single' : readingMode.value))
 const isArabicReadingMode = computed(() => textMode.value === 'arabic')
@@ -55,6 +59,22 @@ const pageIndicator = computed(() => {
     })
   }
   return t('quran.pageIndicator', { page: visiblePageNumbers.value[0] ?? currentPage.value })
+})
+
+const selectedSurahId = computed<string>({
+  get() {
+    if (!chapters.value.length) return ''
+    const current = chapters.value.find((chapter) =>
+      currentPage.value >= chapter.startPage && currentPage.value <= chapter.endPage)
+    return current ? String(current.id) : ''
+  },
+  set(value) {
+    const chapterId = Number.parseInt(value, 10)
+    if (Number.isNaN(chapterId)) return
+    const chapter = chapters.value.find((entry) => entry.id === chapterId)
+    if (!chapter) return
+    currentPage.value = clampQuranPage(chapter.startPage)
+  },
 })
 
 function syncMobileLayout() {
@@ -92,6 +112,38 @@ function formatArabicAyahNumber(verseNumber: number) {
 
 function formatAyahMarker(verseNumber: number) {
   return `﴿${formatArabicAyahNumber(verseNumber)}﴾`
+}
+
+function formatChapterLabel(chapter: QuranChapter) {
+  const latinName = chapter.translatedName || chapter.nameSimple
+  if (locale.value === 'ar') {
+    return `${chapter.id}. ${chapter.nameArabic}`
+  }
+  return `${chapter.id}. ${latinName} (${chapter.nameArabic})`
+}
+
+async function loadChapters() {
+  chaptersAbortController?.abort()
+  const controller = new AbortController()
+  chaptersAbortController = controller
+  chaptersLoading.value = true
+  chaptersError.value = null
+
+  try {
+    const loadedChapters = await provider.getChapters({
+      locale: locale.value,
+      signal: controller.signal,
+    })
+    if (controller.signal.aborted) return
+    chapters.value = loadedChapters
+  } catch (err) {
+    if (controller.signal.aborted) return
+    chaptersError.value = err instanceof Error ? err.message : t('quran.errorUnknown')
+  } finally {
+    if (chaptersAbortController === controller) {
+      chaptersLoading.value = false
+    }
+  }
 }
 
 async function loadPages() {
@@ -137,6 +189,14 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => locale.value,
+  () => {
+    void loadChapters()
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return
@@ -154,6 +214,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   abortController?.abort()
+  chaptersAbortController?.abort()
 
   if (!mediaQueryList) return
   if (typeof mediaQueryList.removeEventListener === 'function') {
@@ -227,6 +288,22 @@ onBeforeUnmount(() => {
         <button type="button" class="btn" :disabled="!canGoPrev || isLoading" @click="goPrev">
           {{ t('quran.prev') }}
         </button>
+
+        <label for="quran-surah-select" class="quran-page-nav__label">{{ t('quran.surah') }}</label>
+        <select
+          id="quran-surah-select"
+          v-model="selectedSurahId"
+          class="quran-page-nav__select"
+          :disabled="chaptersLoading || !chapters.length"
+        >
+          <option value="" disabled>
+            {{ chaptersLoading ? t('quran.loadingSurahs') : t('quran.selectSurah') }}
+          </option>
+          <option v-for="chapter in chapters" :key="chapter.id" :value="String(chapter.id)">
+            {{ formatChapterLabel(chapter) }}
+          </option>
+        </select>
+
         <label for="quran-page-input" class="quran-page-nav__label">{{ t('quran.page') }}</label>
         <input
           id="quran-page-input"
@@ -244,6 +321,7 @@ onBeforeUnmount(() => {
       </div>
 
       <p class="quran-page-nav__indicator">{{ pageIndicator }}</p>
+      <p v-if="chaptersError" class="quran-mobile-hint">{{ t('quran.surahLoadError') }}: {{ chaptersError }}</p>
     </div>
 
     <div v-if="isLoading" class="quran-state">

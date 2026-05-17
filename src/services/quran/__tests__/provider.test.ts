@@ -125,4 +125,52 @@ describe('quran provider', () => {
       showTranslation: true,
     })).rejects.toThrow('Unexpected Quran response')
   })
+
+  it('loads chapters for surah navigation', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      void _input
+      void _init
+      return jsonResponse({
+        chapters: [
+          {
+            id: 1,
+            name_simple: 'Al-Fatihah',
+            name_arabic: 'الفاتحة',
+            pages: [1, 1],
+            translated_name: { name: 'The Opening' },
+          },
+          {
+            id: 2,
+            name_simple: 'Al-Baqarah',
+            name_arabic: 'البقرة',
+            pages: [2, 49],
+            translated_name: { name: 'The Cow' },
+          },
+        ],
+      })
+    })
+
+    const provider = new LegacyQuranProvider({
+      fetchImpl: fetchMock as unknown as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+    })
+
+    const chapters = await provider.getChapters({ locale: 'de' })
+    const requestUrl = String(fetchMock.mock.calls[0]?.[0] ?? '')
+
+    expect(requestUrl).toContain('/chapters?language=de')
+    expect(chapters).toHaveLength(2)
+    expect(chapters[0]).toMatchObject({
+      id: 1,
+      nameSimple: 'Al-Fatihah',
+      nameArabic: 'الفاتحة',
+      translatedName: 'The Opening',
+      startPage: 1,
+      endPage: 1,
+    })
+    expect(chapters[1]).toMatchObject({
+      id: 2,
+      startPage: 2,
+      endPage: 49,
+    })
+  })
 })

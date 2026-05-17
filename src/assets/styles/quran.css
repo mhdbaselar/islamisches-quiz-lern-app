@@ -48,6 +48,10 @@
     @apply w-20 text-center;
   }
 
+  .quran-page-nav__select {
+    @apply min-w-[220px] max-w-[320px] text-sm;
+  }
+
   .quran-page-nav__max,
   .quran-page-nav__indicator {
     @apply text-sm text-muted-foreground;
@@ -160,6 +164,10 @@
 
     .quran-page-nav {
       @apply gap-1;
+    }
+
+    .quran-page-nav__select {
+      @apply min-w-[180px] max-w-[100%];
     }
   }
 }
