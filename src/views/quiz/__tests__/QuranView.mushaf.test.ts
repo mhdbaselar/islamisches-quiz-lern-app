@@ -88,6 +88,13 @@ function buildPage(request: QuranPageRequest): QuranPageData {
   }
 }
 
+function getRenderedPageNumbers(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findAll('.quran-page__header span').map((header) => {
+    const match = header.text().match(/(\d+)$/)
+    return match ? Number.parseInt(match[1], 10) : NaN
+  }).filter((pageNumber) => Number.isFinite(pageNumber))
+}
+
 describe('QuranView mushaf rendering', () => {
   beforeEach(() => {
     getPageMock.mockImplementation(async (request) => buildPage(request))
@@ -136,6 +143,15 @@ describe('QuranView mushaf rendering', () => {
     expect(wrapper.find('.quran-page__mushaf-line--label').text()).toContain('سُورَةُ')
     expect(wrapper.findAll('.quran-page__translation-line').length).toBeGreaterThan(0)
 
+    const spreadButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === ar.quran.spread)
+    expect(spreadButton).toBeTruthy()
+    await spreadButton!.trigger('click')
+    await flushPromises()
+
+    expect(getRenderedPageNumbers(wrapper)).toEqual([2, 1])
+
     const standardButton = wrapper
       .findAll('button')
       .find((button) => button.text() === ar.quran.textModeStandard)
@@ -144,5 +160,7 @@ describe('QuranView mushaf rendering', () => {
     await flushPromises()
 
     expect(wrapper.findAll('.quran-verse').length).toBeGreaterThan(0)
+    expect(getRenderedPageNumbers(wrapper)).toEqual([1, 2])
+    expect(getPageMock.mock.calls.at(-1)?.[0]?.includeMushafWords).toBe(false)
   })
 })
