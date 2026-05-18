@@ -161,6 +161,7 @@ describe('QuranView mushaf rendering', () => {
 
     expect(wrapper.findAll('.quran-verse').length).toBeGreaterThan(0)
     expect(getRenderedPageNumbers(wrapper)).toEqual([1, 2])
-    expect(getPageMock.mock.calls.at(-1)?.[0]?.includeMushafWords).toBe(false)
+    const lastCall = getPageMock.mock.calls[getPageMock.mock.calls.length - 1]
+    expect(lastCall?.[0]?.includeMushafWords).toBe(false)
   })
 })

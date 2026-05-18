@@ -506,7 +506,10 @@ onBeforeUnmount(() => {
     <div
       v-else
       class="quran-reader"
-      :class="{ 'quran-reader--spread': effectiveMode === 'spread' && visiblePageNumbers.length > 1 }"
+      :class="{
+        'quran-reader--spread': effectiveMode === 'spread' && visiblePageNumbers.length > 1,
+        'quran-reader--single': effectiveMode === 'single' || visiblePageNumbers.length === 1,
+      }"
     >
       <article
         v-for="pageData in displayPages"
