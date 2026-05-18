@@ -89,6 +89,8 @@ const pageIndicator = computed(() => {
   }
   return t('quran.pageIndicator', { page: visiblePageNumbers.value[0] ?? currentPage.value })
 })
+const showInitialLoadingState = computed(() => isLoading.value && pages.value.length === 0)
+const showBlockingErrorState = computed(() => Boolean(error.value) && pages.value.length === 0)
 
 const selectedSurahId = computed<string>({
   get() {
@@ -318,6 +320,7 @@ async function loadPages() {
   abortController?.abort()
   const controller = new AbortController()
   abortController = controller
+  const hadPagesBeforeRequest = pages.value.length > 0
   isLoading.value = true
   error.value = null
 
@@ -338,7 +341,9 @@ async function loadPages() {
     void ensureMushafFontsForPages(requestedPages)
   } catch (err) {
     if (controller.signal.aborted) return
-    pages.value = []
+    if (!hadPagesBeforeRequest) {
+      pages.value = []
+    }
     error.value = err instanceof Error ? err.message : t('quran.errorUnknown')
   } finally {
     if (abortController === controller && isLoading.value) {
@@ -501,118 +506,128 @@ onBeforeUnmount(() => {
       <p v-if="chaptersError" class="quran-mobile-hint">{{ t('quran.surahLoadError') }}: {{ chaptersError }}</p>
     </div>
 
-    <div v-if="isLoading" class="quran-state">
+    <div v-if="showInitialLoadingState" class="quran-state">
       {{ t('quran.loading') }}
     </div>
 
-    <div v-else-if="error" class="quran-state quran-state--error">
+    <div v-else-if="showBlockingErrorState" class="quran-state quran-state--error">
       <p>{{ t('quran.errorPrefix') }}: {{ error }}</p>
       <button type="button" class="btn" @click="loadPages">{{ t('quran.retry') }}</button>
     </div>
 
-    <div
-      v-else
-      class="quran-reader"
-      :class="{
-        'quran-reader--spread': effectiveMode === 'spread' && visiblePageNumbers.length > 1,
-        'quran-reader--single': effectiveMode === 'single' || visiblePageNumbers.length === 1,
-      }"
-    >
-      <article
-        v-for="(pageData, pageIndex) in displayPages"
-        :key="pageData.pageNumber"
-        class="quran-page"
-        translate="no"
+    <div v-else class="quran-reader-stack">
+      <div v-if="error" class="quran-state quran-state--error">
+        <p>{{ t('quran.errorPrefix') }}: {{ error }}</p>
+        <button type="button" class="btn" @click="loadPages">{{ t('quran.retry') }}</button>
+      </div>
+
+      <p v-if="isLoading" class="quran-reader-stack__loading" aria-live="polite">
+        {{ t('quran.loading') }}
+      </p>
+
+      <div
+        class="quran-reader"
+        :class="{
+          'quran-reader--spread': effectiveMode === 'spread' && visiblePageNumbers.length > 1,
+          'quran-reader--single': effectiveMode === 'single' || visiblePageNumbers.length === 1,
+        }"
       >
-        <header class="quran-page__header">
-          <div
-            v-if="shouldRenderHeaderNav(pageIndex)"
-            class="quran-page__header-nav"
-            :class="{ 'quran-page__header-nav--arabic': isArabicReadingMode }"
-          >
-            <button
-              v-if="shouldShowHeaderButton(pageIndex, 'prev')"
-              type="button"
-              class="btn quran-page__header-button quran-page__header-button--prev"
-              :disabled="!canGoPrev || isLoading"
-              @click="goPrev"
-            >
-              {{ t('quran.prev') }}
-            </button>
-            <span v-else class="quran-page__header-spacer quran-page__header-spacer--prev" aria-hidden="true" />
-            <span class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
-            <button
-              v-if="shouldShowHeaderButton(pageIndex, 'next')"
-              type="button"
-              class="btn quran-page__header-button quran-page__header-button--next"
-              :disabled="!canGoNext || isLoading"
-              @click="goNext"
-            >
-              {{ t('quran.next') }}
-            </button>
-            <span v-else class="quran-page__header-spacer quran-page__header-spacer--next" aria-hidden="true" />
-          </div>
-          <span v-else class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
-        </header>
-
-        <div v-if="pageData.verses.length" class="quran-page__verses">
-          <template v-if="isArabicReadingMode">
+        <article
+          v-for="(pageData, pageIndex) in displayPages"
+          :key="pageData.pageNumber"
+          class="quran-page"
+          translate="no"
+        >
+          <header class="quran-page__header">
             <div
-              class="quran-page__mushaf-grid"
-              dir="rtl"
-              translate="no"
+              v-if="shouldRenderHeaderNav(pageIndex)"
+              class="quran-page__header-nav"
+              :class="{ 'quran-page__header-nav--arabic': isArabicReadingMode }"
             >
-              <p
-                v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
-                :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
-                class="quran-page__mushaf-line"
-                :class="{
-                  'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
-                  'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
-                  'quran-page__mushaf-line--empty': line.tokens.length === 0,
-                }"
+              <button
+                v-if="shouldShowHeaderButton(pageIndex, 'prev')"
+                type="button"
+                class="btn quran-page__header-button quran-page__header-button--prev"
+                :disabled="!canGoPrev || isLoading"
+                @click="goPrev"
               >
-                <template v-if="line.tokens.length">
-                  <span class="quran-page__mushaf-line-content">
-                    <template v-for="(token, tokenIndex) in line.tokens" :key="getMushafTokenKey(token, tokenIndex)">
-                      <span
-                        v-if="token.kind === 'word'"
-                        :class="getMushafTokenClass(token)"
-                        :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                        v-html="token.text"
-                      />
-                      <span
-                        v-else
-                        :class="getMushafTokenClass(token)"
-                        :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                      >
-                        {{ token.text }}
-                      </span>
-                    </template>
-                  </span>
-                </template>
-                <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
-              </p>
+                {{ t('quran.prev') }}
+              </button>
+              <span v-else class="quran-page__header-spacer quran-page__header-spacer--prev" aria-hidden="true" />
+              <span class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+              <button
+                v-if="shouldShowHeaderButton(pageIndex, 'next')"
+                type="button"
+                class="btn quran-page__header-button quran-page__header-button--next"
+                :disabled="!canGoNext || isLoading"
+                @click="goNext"
+              >
+                {{ t('quran.next') }}
+              </button>
+              <span v-else class="quran-page__header-spacer quran-page__header-spacer--next" aria-hidden="true" />
             </div>
-            <div v-if="showTranslation" class="quran-page__translations">
-              <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
-                <span class="quran-page__translation-key">{{ verse.verseKey }}</span>
-                <span>{{ verse.translation ?? '—' }}</span>
-              </p>
-            </div>
-          </template>
+            <span v-else class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+          </header>
 
-          <template v-else>
-            <section v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-verse">
-              <p class="quran-verse__arabic" dir="rtl" translate="no">{{ verse.textUthmani }}</p>
-              <p v-if="showTranslation && verse.translation" class="quran-verse__translation">{{ verse.translation }}</p>
-              <p class="quran-verse__meta">{{ verse.verseKey }}</p>
-            </section>
-          </template>
-        </div>
+          <div v-if="pageData.verses.length" class="quran-page__verses">
+            <template v-if="isArabicReadingMode">
+              <div
+                class="quran-page__mushaf-grid"
+                dir="rtl"
+                translate="no"
+              >
+                <p
+                  v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
+                  :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
+                  class="quran-page__mushaf-line"
+                  :class="{
+                    'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
+                    'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
+                    'quran-page__mushaf-line--empty': line.tokens.length === 0,
+                  }"
+                >
+                  <template v-if="line.tokens.length">
+                    <span class="quran-page__mushaf-line-content">
+                      <template v-for="(token, tokenIndex) in line.tokens" :key="getMushafTokenKey(token, tokenIndex)">
+                        <span
+                          v-if="token.kind === 'word'"
+                          :class="getMushafTokenClass(token)"
+                          :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                          v-html="token.text"
+                        />
+                        <span
+                          v-else
+                          :class="getMushafTokenClass(token)"
+                          :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                        >
+                          {{ token.text }}
+                        </span>
+                      </template>
+                    </span>
+                  </template>
+                  <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
+                </p>
+              </div>
+              <div v-if="showTranslation" class="quran-page__translations">
+                <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
+                  <span class="quran-page__translation-key">{{ verse.verseKey }}</span>
+                  <span>{{ verse.translation ?? '—' }}</span>
+                </p>
+              </div>
+            </template>
 
-        <p v-else class="quran-page__empty">{{ t('quran.empty') }}</p>
-      </article>
+            <template v-else>
+              <section v-for="verse in pageData.verses" :key="`${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-verse">
+                <p class="quran-verse__arabic" dir="rtl" translate="no">{{ verse.textUthmani }}</p>
+                <p v-if="showTranslation && verse.translation" class="quran-verse__translation">{{ verse.translation }}</p>
+                <p class="quran-verse__meta">{{ verse.verseKey }}</p>
+              </section>
+            </template>
+          </div>
+
+          <p v-else class="quran-page__empty">{{ t('quran.empty') }}</p>
+        </article>
+      </div>
     </div>
   </section>
 </template>

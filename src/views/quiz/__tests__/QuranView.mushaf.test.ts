@@ -182,4 +182,62 @@ describe('QuranView mushaf rendering', () => {
     const lastCall = getPageMock.mock.calls[getPageMock.mock.calls.length - 1]
     expect(lastCall?.[0]?.includeMushafWords).toBe(false)
   })
+
+  it('keeps the current page rendered while loading the next page', async () => {
+    const i18n = createI18n({
+      legacy: false,
+      locale: 'ar',
+      messages: { ar },
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'quran', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    let callCount = 0
+    let resolvePendingPage: (() => void) | null = null
+    getPageMock.mockImplementation((request) => {
+      callCount += 1
+      if (callCount === 1) {
+        return Promise.resolve(buildPage(request))
+      }
+      return new Promise<QuranPageData>((resolve) => {
+        resolvePendingPage = () => resolve(buildPage(request))
+      })
+    })
+
+    const wrapper = mount(QuranView, {
+      global: {
+        plugins: [i18n, router],
+        stubs: {
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const nextButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === ar.quran.next)
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.quran-reader').exists()).toBe(true)
+    expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(true)
+    expect(wrapper.find('.quran-page__header-page').text()).toContain('1')
+    expect(resolvePendingPage).toBeTypeOf('function')
+
+    resolvePendingPage?.()
+    await flushPromises()
+
+    expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(false)
+    expect(wrapper.find('.quran-page__header-page').text()).toContain('2')
+  })
 })

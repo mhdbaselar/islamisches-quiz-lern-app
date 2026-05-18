@@ -61,6 +61,14 @@
     @apply grid gap-4;
   }
 
+  .quran-reader-stack {
+    @apply grid gap-3;
+  }
+
+  .quran-reader-stack__loading {
+    @apply text-sm text-muted-foreground;
+  }
+
   .quran-reader--spread {
     @apply md:grid-cols-2;
   }
