@@ -51,6 +51,7 @@ const canGoPrev = computed(() =>
   getPreviousQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
 const canGoNext = computed(() =>
   getNextQuranPage(currentPage.value, readingMode.value, isMobile.value) !== currentPage.value)
+const isSpreadLayout = computed(() => effectiveMode.value === 'spread' && visiblePageNumbers.value.length > 1)
 const shouldReverseSpreadPages = computed(() => effectiveMode.value === 'spread' && isArabicReadingMode.value)
 const displayPages = computed(() => {
   if (shouldReverseSpreadPages.value && pages.value.length > 1) {
@@ -259,6 +260,19 @@ function goNext() {
   currentPage.value = getNextQuranPage(currentPage.value, readingMode.value, isMobile.value)
 }
 
+function shouldRenderHeaderNav(pageIndex: number): boolean {
+  return isSpreadLayout.value || pageIndex === 0
+}
+
+function shouldShowHeaderButton(pageIndex: number, action: 'prev' | 'next'): boolean {
+  if (!shouldRenderHeaderNav(pageIndex)) return false
+  if (!isSpreadLayout.value) return true
+
+  const leftAction = isArabicReadingMode.value ? 'next' : 'prev'
+  if (pageIndex === 0) return action === leftAction
+  return action !== leftAction
+}
+
 function applyPageInput() {
   const parsed = Number.parseInt(pageInput.value, 10)
   if (Number.isNaN(parsed)) {
@@ -455,10 +469,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="quran-page-nav">
-        <button type="button" class="btn" :disabled="!canGoPrev || isLoading" @click="goPrev">
-          {{ t('quran.prev') }}
-        </button>
-
         <label for="quran-surah-select" class="quran-page-nav__label">{{ t('quran.surah') }}</label>
         <select
           id="quran-surah-select"
@@ -485,9 +495,6 @@ onBeforeUnmount(() => {
           @keydown.enter.prevent="applyPageInput"
         />
         <span class="quran-page-nav__max">/ 604</span>
-        <button type="button" class="btn" :disabled="!canGoNext || isLoading" @click="goNext">
-          {{ t('quran.next') }}
-        </button>
       </div>
 
       <p class="quran-page-nav__indicator">{{ pageIndicator }}</p>
@@ -512,13 +519,40 @@ onBeforeUnmount(() => {
       }"
     >
       <article
-        v-for="pageData in displayPages"
+        v-for="(pageData, pageIndex) in displayPages"
         :key="pageData.pageNumber"
         class="quran-page"
         translate="no"
       >
         <header class="quran-page__header">
-          <span>{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+          <div
+            v-if="shouldRenderHeaderNav(pageIndex)"
+            class="quran-page__header-nav"
+            :class="{ 'quran-page__header-nav--arabic': isArabicReadingMode }"
+          >
+            <button
+              v-if="shouldShowHeaderButton(pageIndex, 'prev')"
+              type="button"
+              class="btn quran-page__header-button quran-page__header-button--prev"
+              :disabled="!canGoPrev || isLoading"
+              @click="goPrev"
+            >
+              {{ t('quran.prev') }}
+            </button>
+            <span v-else class="quran-page__header-spacer quran-page__header-spacer--prev" aria-hidden="true" />
+            <span class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+            <button
+              v-if="shouldShowHeaderButton(pageIndex, 'next')"
+              type="button"
+              class="btn quran-page__header-button quran-page__header-button--next"
+              :disabled="!canGoNext || isLoading"
+              @click="goNext"
+            >
+              {{ t('quran.next') }}
+            </button>
+            <span v-else class="quran-page__header-spacer quran-page__header-spacer--next" aria-hidden="true" />
+          </div>
+          <span v-else class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
         </header>
 
         <div v-if="pageData.verses.length" class="quran-page__verses">

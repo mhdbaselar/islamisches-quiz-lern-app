@@ -88,6 +88,76 @@
 
   .quran-page__header {
     @apply mb-3 border-b border-border pb-2 text-sm text-muted-foreground;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .quran-page__header-nav {
+    display: grid;
+    grid-template-columns: minmax(6.25rem, max-content) minmax(0, 1fr) minmax(6.25rem, max-content);
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .quran-page__header-nav--arabic {
+    direction: rtl;
+  }
+
+  .quran-page__header-nav > * {
+    grid-row: 1;
+  }
+
+  .quran-page__header-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.05rem;
+    white-space: nowrap;
+    line-height: 1.15;
+  }
+
+  .quran-page__header-button--prev {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .quran-page__header-button--next {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .quran-page__header-page {
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.05rem;
+    justify-self: center;
+    text-align: center;
+    font-weight: 500;
+    white-space: nowrap;
+    line-height: 1.15;
+  }
+
+  .quran-page__header-spacer {
+    display: block;
+    min-width: 6.25rem;
+    height: 1px;
+    visibility: hidden;
+  }
+
+  .quran-page__header-spacer--prev {
+    grid-column: 1;
+  }
+
+  .quran-page__header-spacer--next {
+    grid-column: 3;
+  }
+
+  .quran-page__header > .quran-page__header-page {
+    margin-inline: auto;
   }
 
   .quran-page__verses {
@@ -240,6 +310,15 @@
 
     .quran-page__mushaf-line {
       font-size: clamp(0.92rem, 3.35vw, 1.24rem);
+    }
+
+    .quran-page__header-nav {
+      gap: 0.5rem;
+      grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr) minmax(5.5rem, max-content);
+    }
+
+    .quran-page__header-spacer {
+      min-width: 5.5rem;
     }
 
     .quran-reader--single .quran-page__mushaf-grid {

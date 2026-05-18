@@ -142,6 +142,7 @@ describe('QuranView mushaf rendering', () => {
     expect(wrapper.findAll('.quran-page__mushaf-line')).toHaveLength(15)
     expect(wrapper.find('.quran-page__mushaf-line--label').text()).toContain('سُورَةُ')
     expect(wrapper.findAll('.quran-page__translation-line').length).toBeGreaterThan(0)
+    expect(wrapper.find('.quran-page__header-nav').classes()).toContain('quran-page__header-nav--arabic')
 
     const spreadButton = wrapper
       .findAll('button')
@@ -151,6 +152,14 @@ describe('QuranView mushaf rendering', () => {
     await flushPromises()
 
     expect(getRenderedPageNumbers(wrapper)).toEqual([2, 1])
+    const arabicSpreadHeaderButtons = wrapper
+      .findAll('.quran-page__header-nav')
+      .map((header) => header.findAll('button'))
+    expect(arabicSpreadHeaderButtons).toHaveLength(2)
+    expect(arabicSpreadHeaderButtons[0]).toHaveLength(1)
+    expect(arabicSpreadHeaderButtons[1]).toHaveLength(1)
+    expect(arabicSpreadHeaderButtons[0][0].text()).toBe(ar.quran.next)
+    expect(arabicSpreadHeaderButtons[1][0].text()).toBe(ar.quran.prev)
 
     const standardButton = wrapper
       .findAll('button')
@@ -160,6 +169,15 @@ describe('QuranView mushaf rendering', () => {
     await flushPromises()
 
     expect(wrapper.findAll('.quran-verse').length).toBeGreaterThan(0)
+    expect(wrapper.find('.quran-page__header-nav').classes()).not.toContain('quran-page__header-nav--arabic')
+    const standardSpreadHeaderButtons = wrapper
+      .findAll('.quran-page__header-nav')
+      .map((header) => header.findAll('button'))
+    expect(standardSpreadHeaderButtons).toHaveLength(2)
+    expect(standardSpreadHeaderButtons[0]).toHaveLength(1)
+    expect(standardSpreadHeaderButtons[1]).toHaveLength(1)
+    expect(standardSpreadHeaderButtons[0][0].text()).toBe(ar.quran.prev)
+    expect(standardSpreadHeaderButtons[1][0].text()).toBe(ar.quran.next)
     expect(getRenderedPageNumbers(wrapper)).toEqual([1, 2])
     const lastCall = getPageMock.mock.calls[getPageMock.mock.calls.length - 1]
     expect(lastCall?.[0]?.includeMushafWords).toBe(false)
