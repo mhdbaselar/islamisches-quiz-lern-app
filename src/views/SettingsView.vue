@@ -188,7 +188,7 @@ onMounted(() => {
           </div>
           <label class="settings-card__action" for="settings-language-select">
             <span class="sr-only">{{ t('settings.language') }}</span>
-            <select id="settings-language-select" class="settings-card__select" :value="locale.current"
+            <select id="settings-language-select" class="btn settings-card__select" :value="locale.current"
               @change="onChangeLocale">
               <option value="de">{{ t('languages.de') }}</option>
               <option value="en">{{ t('languages.en') }}</option>
