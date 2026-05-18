@@ -21,12 +21,63 @@ const QCF_V2_FONT_FAMILY_PREFIX = 'QCFV2Page'
 const QCF_V2_FONT_URL_PREFIX = 'https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p'
 
 type QuranTextMode = 'arabic' | 'standard'
+type PersistedQuranViewSettings = {
+  currentPage: number
+  readingMode: QuranReadingMode
+  textMode: QuranTextMode
+  showTranslation: boolean
+}
 
-const currentPage = ref(1)
-const pageInput = ref('1')
-const readingMode = ref<QuranReadingMode>('single')
-const textMode = ref<QuranTextMode>(locale.value === 'ar' ? 'arabic' : 'standard')
-const showTranslation = ref(true)
+const QURAN_VIEW_STORAGE_KEY = 'app.quran.view.settings'
+
+function readStoredQuranSettings(): Partial<PersistedQuranViewSettings> | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = window.localStorage.getItem(QURAN_VIEW_STORAGE_KEY)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const restored: Partial<PersistedQuranViewSettings> = {}
+
+    if (typeof parsed.currentPage === 'number' && Number.isFinite(parsed.currentPage)) {
+      restored.currentPage = clampQuranPage(Math.trunc(parsed.currentPage))
+    }
+
+    if (parsed.readingMode === 'single' || parsed.readingMode === 'spread') {
+      restored.readingMode = parsed.readingMode
+    }
+
+    if (parsed.textMode === 'arabic' || parsed.textMode === 'standard') {
+      restored.textMode = parsed.textMode
+    }
+
+    if (typeof parsed.showTranslation === 'boolean') {
+      restored.showTranslation = parsed.showTranslation
+    }
+
+    return restored
+  } catch {
+    return null
+  }
+}
+
+function writeStoredQuranSettings(settings: PersistedQuranViewSettings): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(QURAN_VIEW_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+const storedQuranSettings = readStoredQuranSettings()
+const currentPage = ref(storedQuranSettings?.currentPage ?? 1)
+const pageInput = ref(String(currentPage.value))
+const readingMode = ref<QuranReadingMode>(storedQuranSettings?.readingMode ?? 'single')
+const textMode = ref<QuranTextMode>(storedQuranSettings?.textMode ?? (locale.value === 'ar' ? 'arabic' : 'standard'))
+const showTranslation = ref(storedQuranSettings?.showTranslation ?? true)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const pages = ref<QuranPageData[]>([])
@@ -355,6 +406,15 @@ async function loadPages() {
 watch(currentPage, (nextPage) => {
   pageInput.value = String(nextPage)
 }, { immediate: true })
+
+watch([currentPage, readingMode, textMode, showTranslation], () => {
+  writeStoredQuranSettings({
+    currentPage: currentPage.value,
+    readingMode: readingMode.value,
+    textMode: textMode.value,
+    showTranslation: showTranslation.value,
+  })
+})
 
 watch(
   [visiblePageNumbers, isArabicReadingMode, () => locale.value],

@@ -7,6 +7,7 @@ import type { QuranChapter, QuranPageData, QuranPageRequest } from '@/services/q
 
 const getPageMock = vi.fn<(request: QuranPageRequest) => Promise<QuranPageData>>()
 const getChaptersMock = vi.fn<(request?: { locale?: string }) => Promise<QuranChapter[]>>()
+const QURAN_VIEW_STORAGE_KEY = 'app.quran.view.settings'
 
 vi.mock('@/services/quran/provider', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/quran/provider')>()
@@ -97,6 +98,9 @@ function getRenderedPageNumbers(wrapper: ReturnType<typeof mount>) {
 
 describe('QuranView mushaf rendering', () => {
   beforeEach(() => {
+    window.localStorage.clear()
+    getPageMock.mockReset()
+    getChaptersMock.mockReset()
     getPageMock.mockImplementation(async (request) => buildPage(request))
     getChaptersMock.mockResolvedValue([
       {
@@ -240,5 +244,73 @@ describe('QuranView mushaf rendering', () => {
 
     expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(false)
     expect(wrapper.find('.quran-page__header-page').text()).toContain('2')
+  })
+
+  it('restores and persists quran settings in local storage', async () => {
+    window.localStorage.setItem(QURAN_VIEW_STORAGE_KEY, JSON.stringify({
+      currentPage: 4,
+      readingMode: 'spread',
+      textMode: 'standard',
+      showTranslation: false,
+    }))
+
+    const i18n = createI18n({
+      legacy: false,
+      locale: 'ar',
+      messages: { ar },
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'quran', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(QuranView, {
+      global: {
+        plugins: [i18n, router],
+        stubs: {
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(getPageMock.mock.calls[0]?.[0]?.pageNumber).toBe(3)
+    expect(getPageMock.mock.calls[0]?.[0]?.includeMushafWords).toBe(false)
+    expect(getPageMock.mock.calls[0]?.[0]?.showTranslation).toBe(false)
+    expect(wrapper.find('.quran-controls__toggle input').element).toHaveProperty('checked', false)
+
+    const singleButton = wrapper.findAll('button').find((button) => button.text() === ar.quran.single)
+    const arabicButton = wrapper.findAll('button').find((button) => button.text() === ar.quran.textModeArabic)
+    const nextButton = wrapper.findAll('button').find((button) => button.text() === ar.quran.next)
+
+    expect(singleButton).toBeTruthy()
+    expect(arabicButton).toBeTruthy()
+    expect(nextButton).toBeTruthy()
+
+    await singleButton!.trigger('click')
+    await arabicButton!.trigger('click')
+    await wrapper.find('.quran-controls__toggle input').setValue(true)
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    const persistedRaw = window.localStorage.getItem(QURAN_VIEW_STORAGE_KEY)
+    expect(persistedRaw).toBeTruthy()
+    const persisted = JSON.parse(persistedRaw ?? '{}') as {
+      currentPage?: number
+      readingMode?: string
+      textMode?: string
+      showTranslation?: boolean
+    }
+
+    expect(persisted.currentPage).toBe(5)
+    expect(persisted.readingMode).toBe('single')
+    expect(persisted.textMode).toBe('arabic')
+    expect(persisted.showTranslation).toBe(true)
   })
 })
