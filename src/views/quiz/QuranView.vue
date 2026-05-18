@@ -523,42 +523,44 @@ onBeforeUnmount(() => {
 
         <div v-if="pageData.verses.length" class="quran-page__verses">
           <template v-if="isArabicReadingMode">
-            <div
-              class="quran-page__mushaf-grid"
-              dir="rtl"
-              translate="no"
-            >
-              <p
-                v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
-                :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
-                class="quran-page__mushaf-line"
-                :class="{
-                  'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
-                  'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
-                  'quran-page__mushaf-line--empty': line.tokens.length === 0,
-                }"
+            <div class="quran-page__mushaf-fit">
+              <div
+                class="quran-page__mushaf-grid"
+                dir="rtl"
+                translate="no"
               >
-                <template v-if="line.tokens.length">
-                  <span class="quran-page__mushaf-line-content">
-                    <template v-for="(token, tokenIndex) in line.tokens" :key="getMushafTokenKey(token, tokenIndex)">
-                      <span
-                        v-if="token.kind === 'word'"
-                        :class="getMushafTokenClass(token)"
-                        :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                        v-html="token.text"
-                      />
-                      <span
-                        v-else
-                        :class="getMushafTokenClass(token)"
-                        :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                      >
-                        {{ token.text }}
-                      </span>
-                    </template>
-                  </span>
-                </template>
-                <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
-              </p>
+                <p
+                  v-for="line in getMushafLayout(pageData.pageNumber)?.lines ?? []"
+                  :key="`line-${pageData.pageNumber}-${line.lineNumber}`"
+                  class="quran-page__mushaf-line"
+                  :class="{
+                    'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
+                    'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
+                    'quran-page__mushaf-line--empty': line.tokens.length === 0,
+                  }"
+                >
+                  <template v-if="line.tokens.length">
+                    <span class="quran-page__mushaf-line-content">
+                      <template v-for="(token, tokenIndex) in line.tokens" :key="getMushafTokenKey(token, tokenIndex)">
+                        <span
+                          v-if="token.kind === 'word'"
+                          :class="getMushafTokenClass(token)"
+                          :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                          v-html="token.text"
+                        />
+                        <span
+                          v-else
+                          :class="getMushafTokenClass(token)"
+                          :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                        >
+                          {{ token.text }}
+                        </span>
+                      </template>
+                    </span>
+                  </template>
+                  <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
+                </p>
+              </div>
             </div>
             <div v-if="showTranslation" class="quran-page__translations">
               <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
