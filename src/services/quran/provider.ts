@@ -139,9 +139,11 @@ function mapLegacyWord(word: LegacyApiWord, fallbackPageNumber: number, fallback
     lineNumber: parseNumber(word.line_number, 0),
     pageNumber: parseNumber(word.page_number, fallbackPageNumber),
     charTypeName: parseString(word.char_type_name).trim(),
-    codeV2: parseString(word.code_v2).trim(),
-    textQpcHafs: parseString(word.text_qpc_hafs).trim(),
-    textUthmani: parseString(word.text_uthmani).trim(),
+    // Keep glyph/unicode payloads untouched; QCF values can include significant
+    // spacing/entities that should not be normalized.
+    codeV2: parseString(word.code_v2),
+    textQpcHafs: parseString(word.text_qpc_hafs),
+    textUthmani: parseString(word.text_uthmani),
     verseKey: parseString(word.verse_key, fallbackVerseKey).trim(),
   }
 }

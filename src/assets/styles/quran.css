@@ -68,7 +68,6 @@
   .quran-page {
     @apply text-card-foreground border p-4;
     border-radius: var(--radius, 0.5rem);
-    container-type: inline-size;
     min-height: 0;
   }
 
@@ -94,13 +93,13 @@
   .quran-page__mushaf-line {
     @apply flex items-center justify-center;
     direction: rtl;
-    padding-inline: clamp(0.2rem, 0.55cqi, 0.62rem);
+    padding-inline: clamp(0.22rem, 0.7vw, 0.62rem);
     min-width: 0;
     white-space: nowrap;
     overflow: visible;
     text-align: center;
     text-align-last: center;
-    font-size: calc(clamp(0.98rem, 2.05cqi, 1.62rem) * var(--mushaf-scale, 1));
+    font-size: clamp(1rem, 1.85vw, 1.62rem);
     line-height: 1.34;
   }
 
@@ -113,20 +112,24 @@
     display: inline-flex;
     align-items: baseline;
     justify-content: center;
-    column-gap: 0.015em;
+    column-gap: 0;
     max-width: 100%;
     white-space: nowrap;
   }
 
   .quran-page__mushaf-token {
     display: inline-block;
-    margin-inline-start: 0.015em;
+    margin-inline-start: 0;
     padding-inline: 0;
     white-space: nowrap;
   }
 
+  .quran-page__mushaf-token--word {
+    white-space: pre;
+  }
+
   .quran-page__mushaf-token--end {
-    margin-inline: 0.04em 0.18em;
+    margin-inline: 0.02em 0.14em;
     font-size: 0.86em;
   }
 
@@ -151,17 +154,6 @@
   @supports not (aspect-ratio: 1 / 1) {
     .quran-page__mushaf-grid {
       min-height: clamp(20rem, 54vw, 38rem);
-    }
-  }
-
-  @supports not (width: 1cqi) {
-    .quran-page__mushaf-grid {
-      min-height: clamp(20rem, 54vw, 38rem);
-    }
-
-    .quran-page__mushaf-line {
-      padding-inline: clamp(0.12rem, 0.5vw, 0.48rem);
-      font-size: calc(clamp(0.98rem, 1.8vw, 1.62rem) * var(--mushaf-scale, 1));
     }
   }
 
@@ -232,18 +224,12 @@
     }
 
     .quran-page__mushaf-line {
-      font-size: calc(clamp(0.9rem, 3.75cqi, 1.24rem) * var(--mushaf-scale, 1));
+      font-size: clamp(0.92rem, 3.35vw, 1.24rem);
     }
 
     @supports not (aspect-ratio: 1 / 1) {
       .quran-page__mushaf-grid {
         min-height: clamp(17rem, 78vw, 26rem);
-      }
-    }
-
-    @supports not (width: 1cqi) {
-      .quran-page__mushaf-line {
-        font-size: calc(clamp(0.9rem, 3.35vw, 1.24rem) * var(--mushaf-scale, 1));
       }
     }
   }
