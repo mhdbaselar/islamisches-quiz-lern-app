@@ -200,13 +200,15 @@ describe('QuranView mushaf rendering', () => {
     await router.isReady()
 
     let callCount = 0
-    let resolvePendingPage: (() => void) | null = null
+    let hasPendingPageResolver = false
+    let resolvePendingPage: () => void = () => {}
     getPageMock.mockImplementation((request) => {
       callCount += 1
       if (callCount === 1) {
         return Promise.resolve(buildPage(request))
       }
       return new Promise<QuranPageData>((resolve) => {
+        hasPendingPageResolver = true
         resolvePendingPage = () => resolve(buildPage(request))
       })
     })
@@ -232,9 +234,8 @@ describe('QuranView mushaf rendering', () => {
     expect(wrapper.find('.quran-reader').exists()).toBe(true)
     expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(true)
     expect(wrapper.find('.quran-page__header-page').text()).toContain('1')
-    expect(resolvePendingPage).toBeTypeOf('function')
-
-    resolvePendingPage?.()
+    expect(hasPendingPageResolver).toBe(true)
+    resolvePendingPage()
     await flushPromises()
 
     expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(false)
