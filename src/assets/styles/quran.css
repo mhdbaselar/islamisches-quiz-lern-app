@@ -168,6 +168,10 @@
     margin-inline: auto;
   }
 
+  .quran-page__header-page--spacer {
+    visibility: hidden;
+  }
+
   .quran-page__verses {
     @apply grid gap-3;
   }
@@ -248,6 +252,12 @@
     .quran-page__mushaf-grid {
       min-height: clamp(20rem, 54vw, 38rem);
     }
+  }
+
+  .quran-page__mushaf-page-number {
+    @apply text-center text-sm font-medium text-foreground;
+    margin-top: 0.25rem;
+    line-height: 1.2;
   }
 
   .quran-page__translations {

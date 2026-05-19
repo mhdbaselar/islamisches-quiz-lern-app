@@ -872,7 +872,8 @@ onBeforeUnmount(() => {
                 {{ t('quran.prev') }}
               </button>
               <span v-else class="quran-page__header-spacer quran-page__header-spacer--prev" aria-hidden="true" />
-              <span class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+              <span v-if="!isArabicReadingMode" class="quran-page__header-page">{{ pageData.pageNumber }}</span>
+              <span v-else class="quran-page__header-page quran-page__header-page--spacer" aria-hidden="true">&nbsp;</span>
               <button
                 v-if="shouldShowHeaderButton(pageIndex, 'next')"
                 type="button"
@@ -884,7 +885,8 @@ onBeforeUnmount(() => {
               </button>
               <span v-else class="quran-page__header-spacer quran-page__header-spacer--next" aria-hidden="true" />
             </div>
-            <span v-else class="quran-page__header-page">{{ t('quran.page') }} {{ pageData.pageNumber }}</span>
+            <span v-if="!isArabicReadingMode" class="quran-page__header-page">{{ pageData.pageNumber }}</span>
+            <span v-else class="quran-page__header-page quran-page__header-page--spacer" aria-hidden="true">&nbsp;</span>
           </header>
 
           <div v-if="pageData.verses.length" class="quran-page__verses">
@@ -926,6 +928,7 @@ onBeforeUnmount(() => {
                   <span v-else class="quran-page__mushaf-placeholder" aria-hidden="true">&nbsp;</span>
                 </p>
               </div>
+              <p class="quran-page__mushaf-page-number">{{ pageData.pageNumber }}</p>
               <div v-if="showTranslation" class="quran-page__translations">
                 <p v-for="verse in pageData.verses" :key="`tr-${pageData.pageNumber}-${verse.id}-${verse.verseKey}`" class="quran-page__translation-line">
                   <span class="quran-page__translation-key">{{ verse.verseKey }}</span>

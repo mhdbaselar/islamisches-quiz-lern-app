@@ -90,9 +90,20 @@ function buildPage(request: QuranPageRequest): QuranPageData {
 }
 
 function getRenderedPageNumbers(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAll('.quran-page__header span').map((header) => {
-    const match = header.text().match(/(\d+)$/)
-    return match ? Number.parseInt(match[1], 10) : NaN
+  return wrapper.findAll('.quran-page').map((page) => {
+    const mushafNumber = page.find('.quran-page__mushaf-page-number')
+    if (mushafNumber.exists()) {
+      const parsed = Number.parseInt(mushafNumber.text(), 10)
+      return Number.isFinite(parsed) ? parsed : NaN
+    }
+
+    const headerNumber = page.find('.quran-page__header-page')
+    if (headerNumber.exists()) {
+      const match = headerNumber.text().match(/(\d+)$/)
+      return match ? Number.parseInt(match[1], 10) : NaN
+    }
+
+    return NaN
   }).filter((pageNumber) => Number.isFinite(pageNumber))
 }
 
@@ -237,13 +248,13 @@ describe('QuranView mushaf rendering', () => {
 
     expect(wrapper.find('.quran-reader').exists()).toBe(true)
     expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(true)
-    expect(wrapper.find('.quran-page__header-page').text()).toContain('1')
+    expect(wrapper.find('.quran-page__mushaf-page-number').text()).toBe('1')
     expect(hasPendingPageResolver).toBe(true)
     resolvePendingPage()
     await flushPromises()
 
     expect(wrapper.find('.quran-reader-stack__loading').exists()).toBe(false)
-    expect(wrapper.find('.quran-page__header-page').text()).toContain('2')
+    expect(wrapper.find('.quran-page__mushaf-page-number').text()).toBe('2')
   })
 
   it('restores and persists quran settings in local storage', async () => {
