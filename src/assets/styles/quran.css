@@ -203,7 +203,7 @@
 
   @supports (font-size: 1cqw) {
     .quran-page__mushaf-line {
-      font-size: clamp(1rem, 2.85cqw, 1.62rem);
+      font-size: clamp(1rem, 5.35cqw, 1.62rem);
     }
   }
 
@@ -339,7 +339,7 @@
 
     @supports (font-size: 1cqw) {
       .quran-page__mushaf-line {
-        font-size: clamp(0.92rem, 4.2cqw, 1.24rem);
+        font-size: clamp(0.92rem, 5.35cqw, 1.24rem);
       }
     }
 
