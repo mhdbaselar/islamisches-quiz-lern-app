@@ -2,10 +2,11 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeading from '@/components/ui/PageHeading.vue'
-import type { QuranChapter, QuranPageData } from '@/services/quran/provider'
+import type { QuranChapter, QuranPageData, QuranPageRequest } from '@/services/quran/provider'
 import { LegacyQuranProvider } from '@/services/quran/provider'
 import { buildMushafPageLayout, type QuranMushafLineToken } from '@/services/quran/layout'
 import {
+  QURAN_MAX_PAGE,
   clampQuranPage,
   getNextQuranPage,
   getPreviousQuranPage,
@@ -27,8 +28,12 @@ type PersistedQuranViewSettings = {
   textMode: QuranTextMode
   showTranslation: boolean
 }
+type CachedQuranPageRequestOptions = Pick<QuranPageRequest, 'locale' | 'showTranslation' | 'includeMushafWords'>
 
 const QURAN_VIEW_STORAGE_KEY = 'app.quran.view.settings'
+const QURAN_PAGE_CACHE_STORAGE_PREFIX = 'app.quran.page-cache.v1'
+const QURAN_WARMED_LOCALES_STORAGE_KEY = 'app.quran.page-cache.v1.warmed-locales'
+const ENABLE_BACKGROUND_QURAN_WARMUP = import.meta.env.MODE !== 'test'
 
 function readStoredQuranSettings(): Partial<PersistedQuranViewSettings> | null {
   if (typeof window === 'undefined') return null
@@ -72,6 +77,125 @@ function writeStoredQuranSettings(settings: PersistedQuranViewSettings): void {
   }
 }
 
+function normalizeLocaleForCache(localeValue: string): string {
+  const normalized = localeValue.trim().toLowerCase()
+  return normalized || 'default'
+}
+
+function normalizeIncludeMushafWords(includeMushafWords: boolean | undefined): boolean {
+  return includeMushafWords === true
+}
+
+function getQuranPageCacheKey(pageNumber: number, options: CachedQuranPageRequestOptions): string {
+  const normalizedPage = clampQuranPage(pageNumber)
+  const normalizedLocale = normalizeLocaleForCache(options.locale)
+  const includeWordsFlag = normalizeIncludeMushafWords(options.includeMushafWords) ? '1' : '0'
+  const showTranslationFlag = options.showTranslation ? '1' : '0'
+  return `${QURAN_PAGE_CACHE_STORAGE_PREFIX}:${normalizedLocale}:${normalizedPage}:${includeWordsFlag}:${showTranslationFlag}`
+}
+
+function isQuranPageData(value: unknown, expectedPageNumber: number): value is QuranPageData {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as { pageNumber?: unknown, verses?: unknown }
+  return candidate.pageNumber === expectedPageNumber && Array.isArray(candidate.verses)
+}
+
+function readCachedQuranPageByOptions(pageNumber: number, options: CachedQuranPageRequestOptions): QuranPageData | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const normalizedPage = clampQuranPage(pageNumber)
+    const raw = window.localStorage.getItem(getQuranPageCacheKey(normalizedPage, options))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return isQuranPageData(parsed, normalizedPage) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function readCachedQuranPage(pageNumber: number, options: CachedQuranPageRequestOptions): QuranPageData | null {
+  const exactMatch = readCachedQuranPageByOptions(pageNumber, options)
+  if (exactMatch) return exactMatch
+
+  if (options.showTranslation && normalizeIncludeMushafWords(options.includeMushafWords)) {
+    return null
+  }
+
+  return readCachedQuranPageByOptions(pageNumber, {
+    locale: options.locale,
+    showTranslation: true,
+    includeMushafWords: true,
+  })
+}
+
+function writeCachedQuranPage(pageData: QuranPageData, options: CachedQuranPageRequestOptions): boolean {
+  if (typeof window === 'undefined') return false
+
+  try {
+    const normalizedPage = clampQuranPage(pageData.pageNumber)
+    const payload = JSON.stringify({
+      ...pageData,
+      pageNumber: normalizedPage,
+    })
+    window.localStorage.setItem(getQuranPageCacheKey(normalizedPage, options), payload)
+    return true
+  } catch {
+    return false
+  }
+}
+
+let warmedLocalesCache: Set<string> | null = null
+
+function readWarmedLocales(): Set<string> {
+  if (warmedLocalesCache) return warmedLocalesCache
+  if (typeof window === 'undefined') {
+    warmedLocalesCache = new Set<string>()
+    return warmedLocalesCache
+  }
+
+  try {
+    const raw = window.localStorage.getItem(QURAN_WARMED_LOCALES_STORAGE_KEY)
+    if (!raw) {
+      warmedLocalesCache = new Set<string>()
+      return warmedLocalesCache
+    }
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      warmedLocalesCache = new Set<string>()
+      return warmedLocalesCache
+    }
+    warmedLocalesCache = new Set(
+      parsed
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => normalizeLocaleForCache(entry)),
+    )
+    return warmedLocalesCache
+  } catch {
+    warmedLocalesCache = new Set<string>()
+    return warmedLocalesCache
+  }
+}
+
+function isLocaleWarmed(localeValue: string): boolean {
+  const warmedLocales = readWarmedLocales()
+  return warmedLocales.has(normalizeLocaleForCache(localeValue))
+}
+
+function markLocaleWarmed(localeValue: string): void {
+  if (typeof window === 'undefined') return
+  const warmedLocales = readWarmedLocales()
+  const localeKey = normalizeLocaleForCache(localeValue)
+  if (warmedLocales.has(localeKey)) return
+  warmedLocales.add(localeKey)
+
+  try {
+    window.localStorage.setItem(QURAN_WARMED_LOCALES_STORAGE_KEY, JSON.stringify([...warmedLocales]))
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
 const storedQuranSettings = readStoredQuranSettings()
 const currentPage = ref(storedQuranSettings?.currentPage ?? 1)
 const pageInput = ref(String(currentPage.value))
@@ -90,10 +214,13 @@ const pageFontReady = ref<Record<number, boolean>>({})
 let mediaQueryList: MediaQueryList | null = null
 let abortController: AbortController | null = null
 let chaptersAbortController: AbortController | null = null
+let warmupAbortController: AbortController | null = null
+let activeWarmupLocale: string | null = null
 let unicodeFontReady = false
 let pendingUnicodeFontLoad: Promise<boolean> | null = null
 const loadedQcfV2Pages = new Set<number>()
 const pendingQcfFontLoads = new Map<number, Promise<boolean>>()
+const warmupLocalesWithStorageFailure = new Set<string>()
 
 const effectiveMode = computed<QuranReadingMode>(() => (isMobile.value ? 'single' : readingMode.value))
 const isArabicReadingMode = computed(() => textMode.value === 'arabic')
@@ -343,6 +470,105 @@ function formatChapterLabel(chapter: QuranChapter) {
   return `${chapter.id}. ${latinName} (${chapter.nameArabic})`
 }
 
+function getCurrentPageRequestOptions(): CachedQuranPageRequestOptions {
+  return {
+    locale: locale.value,
+    showTranslation: isArabicReadingMode.value ? true : showTranslation.value,
+    includeMushafWords: isArabicReadingMode.value,
+  }
+}
+
+function getSupersetRequestOptions(localeValue: string): CachedQuranPageRequestOptions {
+  return {
+    locale: localeValue,
+    showTranslation: true,
+    includeMushafWords: true,
+  }
+}
+
+function getAdjacentPrefetchPages(basePages: number[]): number[] {
+  const candidates = new Set<number>()
+  for (const pageNumber of basePages) {
+    for (const offset of [-2, -1, 1, 2]) {
+      const candidate = clampQuranPage(pageNumber + offset)
+      if (!basePages.includes(candidate)) {
+        candidates.add(candidate)
+      }
+    }
+  }
+  return [...candidates]
+}
+
+async function prefetchAdjacentPages(basePages: number[]) {
+  if (!ENABLE_BACKGROUND_QURAN_WARMUP || typeof window === 'undefined') return
+  const prefetchOptions = getSupersetRequestOptions(locale.value)
+  const prefetchPages = getAdjacentPrefetchPages(basePages)
+
+  for (const pageNumber of prefetchPages) {
+    if (readCachedQuranPage(pageNumber, prefetchOptions)) continue
+
+    try {
+      const fetchedPage = await provider.getPage({
+        pageNumber,
+        ...prefetchOptions,
+      })
+      writeCachedQuranPage(fetchedPage, prefetchOptions)
+    } catch {
+      return
+    }
+  }
+}
+
+function warmQuranCacheInBackground() {
+  if (!ENABLE_BACKGROUND_QURAN_WARMUP || typeof window === 'undefined') return
+
+  const warmupLocaleValue = locale.value
+  const localeKey = normalizeLocaleForCache(warmupLocaleValue)
+  if (isLocaleWarmed(warmupLocaleValue)) return
+  if (warmupLocalesWithStorageFailure.has(localeKey)) return
+  if (activeWarmupLocale === localeKey) return
+
+  warmupAbortController?.abort()
+  const controller = new AbortController()
+  warmupAbortController = controller
+  activeWarmupLocale = localeKey
+
+  const warmupOptions = getSupersetRequestOptions(warmupLocaleValue)
+
+  void (async () => {
+    try {
+      for (let pageNumber = 1; pageNumber <= QURAN_MAX_PAGE; pageNumber += 1) {
+        if (controller.signal.aborted) return
+        if (readCachedQuranPage(pageNumber, warmupOptions)) continue
+
+        const fetchedPage = await provider.getPage({
+          pageNumber,
+          ...warmupOptions,
+          signal: controller.signal,
+        })
+
+        if (controller.signal.aborted) return
+        const stored = writeCachedQuranPage(fetchedPage, warmupOptions)
+        if (!stored) {
+          warmupLocalesWithStorageFailure.add(localeKey)
+          return
+        }
+      }
+
+      if (!controller.signal.aborted) {
+        markLocaleWarmed(warmupLocaleValue)
+      }
+    } catch {
+      /* ignore transient warmup errors */
+    } finally {
+      if (warmupAbortController === controller) {
+        warmupAbortController = null
+        activeWarmupLocale = null
+      }
+    }
+  })()
+}
+
 async function loadChapters() {
   chaptersAbortController?.abort()
   const controller = new AbortController()
@@ -372,24 +598,55 @@ async function loadPages() {
   const controller = new AbortController()
   abortController = controller
   const hadPagesBeforeRequest = pages.value.length > 0
-  isLoading.value = true
   error.value = null
 
   try {
     const requestedPages = visiblePageNumbers.value
-    const loadedPages = await Promise.all(
-      requestedPages.map((pageNumber) => provider.getPage({
-        pageNumber,
-        locale: locale.value,
-        showTranslation: isArabicReadingMode.value ? true : showTranslation.value,
-        includeMushafWords: isArabicReadingMode.value,
-        signal: controller.signal,
-      })),
-    )
+    const requestOptions = getCurrentPageRequestOptions()
+    const pageByNumber = new Map<number, QuranPageData>()
+
+    for (const pageNumber of requestedPages) {
+      const cachedPage = readCachedQuranPage(pageNumber, requestOptions)
+      if (cachedPage) {
+        pageByNumber.set(pageNumber, cachedPage)
+      }
+    }
+
+    const missingPages = requestedPages.filter((pageNumber) => !pageByNumber.has(pageNumber))
+
+    if (missingPages.length > 0) {
+      isLoading.value = true
+      const fetchedPages = await Promise.all(
+        missingPages.map((pageNumber) => provider.getPage({
+          pageNumber,
+          ...requestOptions,
+          signal: controller.signal,
+        })),
+      )
+
+      if (controller.signal.aborted) return
+
+      for (const fetchedPage of fetchedPages) {
+        pageByNumber.set(fetchedPage.pageNumber, fetchedPage)
+        writeCachedQuranPage(fetchedPage, requestOptions)
+      }
+    } else {
+      isLoading.value = false
+    }
+
+    const loadedPages = requestedPages
+      .map((pageNumber) => pageByNumber.get(pageNumber))
+      .filter((pageData): pageData is QuranPageData => Boolean(pageData))
+
+    if (loadedPages.length !== requestedPages.length) {
+      throw new Error('Missing Quran pages after cache/network load')
+    }
 
     if (controller.signal.aborted) return
     pages.value = loadedPages
     void ensureMushafFontsForPages(requestedPages)
+    void prefetchAdjacentPages(requestedPages)
+    warmQuranCacheInBackground()
   } catch (err) {
     if (controller.signal.aborted) return
     if (!hadPagesBeforeRequest) {
@@ -469,6 +726,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   abortController?.abort()
   chaptersAbortController?.abort()
+  warmupAbortController?.abort()
 
   if (!mediaQueryList) return
   if (typeof mediaQueryList.removeEventListener === 'function') {

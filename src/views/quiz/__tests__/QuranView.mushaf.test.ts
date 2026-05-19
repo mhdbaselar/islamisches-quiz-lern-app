@@ -169,6 +169,7 @@ describe('QuranView mushaf rendering', () => {
       .findAll('button')
       .find((button) => button.text() === ar.quran.textModeStandard)
     expect(standardButton).toBeTruthy()
+    const callCountBeforeStandardSwitch = getPageMock.mock.calls.length
     await standardButton!.trigger('click')
     await flushPromises()
 
@@ -183,8 +184,7 @@ describe('QuranView mushaf rendering', () => {
     expect(standardSpreadHeaderButtons[0][0].text()).toBe(ar.quran.prev)
     expect(standardSpreadHeaderButtons[1][0].text()).toBe(ar.quran.next)
     expect(getRenderedPageNumbers(wrapper)).toEqual([1, 2])
-    const lastCall = getPageMock.mock.calls[getPageMock.mock.calls.length - 1]
-    expect(lastCall?.[0]?.includeMushafWords).toBe(false)
+    expect(getPageMock).toHaveBeenCalledTimes(callCountBeforeStandardSwitch)
   })
 
   it('keeps the current page rendered while loading the next page', async () => {
