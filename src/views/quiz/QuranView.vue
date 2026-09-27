@@ -31,8 +31,8 @@ type PersistedQuranViewSettings = {
 type CachedQuranPageRequestOptions = Pick<QuranPageRequest, 'locale' | 'showTranslation' | 'includeMushafWords'>
 
 const QURAN_VIEW_STORAGE_KEY = 'app.quran.view.settings'
-const QURAN_PAGE_CACHE_STORAGE_PREFIX = 'app.quran.page-cache.v1'
-const QURAN_WARMED_LOCALES_STORAGE_KEY = 'app.quran.page-cache.v1.warmed-locales'
+const QURAN_PAGE_CACHE_STORAGE_PREFIX = 'app.quran.page-cache.v2'
+const QURAN_WARMED_LOCALES_STORAGE_KEY = 'app.quran.page-cache.v2.warmed-locales'
 const ENABLE_BACKGROUND_QURAN_WARMUP = import.meta.env.MODE !== 'test'
 
 function readStoredQuranSettings(): Partial<PersistedQuranViewSettings> | null {
@@ -396,15 +396,23 @@ function getMushafTokenClass(token: QuranMushafLineToken) {
   }
 }
 
+function getMushafTokenText(token: QuranMushafLineToken, pageNumber: number) {
+  if (token.kind !== 'word') return token.text
+
+  // QCF v2 uses page-specific private-use characters, including the ayah
+  // markers. Render them only with the matching loaded page font. Until then,
+  // use the Unicode Quran text/digit supplied by the API so no words disappear
+  // and ayah numbers still restart correctly at each surah.
+  if (pageFontReady.value[pageNumber] && token.codeV2) {
+    return token.codeV2
+  }
+
+  return token.text
+}
+
 function getMushafTokenStyle(token: QuranMushafLineToken, pageNumber: number) {
   if (token.kind === 'word') {
-    if (token.charTypeName === 'end') {
-      return {
-        fontFamily: `"${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
-      }
-    }
-
-    if (pageFontReady.value[pageNumber]) {
+    if (pageFontReady.value[pageNumber] && token.codeV2) {
       return {
         fontFamily: `"${getPageQcfV2FontFamily(pageNumber)}", "${UTHMANIC_HAFS_FONT_FAMILY}", "Amiri", "Noto Naskh Arabic", serif`,
       }
@@ -913,7 +921,7 @@ onBeforeUnmount(() => {
                           v-if="token.kind === 'word'"
                           :class="getMushafTokenClass(token)"
                           :style="getMushafTokenStyle(token, pageData.pageNumber)"
-                          v-html="token.text"
+                          v-html="getMushafTokenText(token, pageData.pageNumber)"
                         />
                         <span
                           v-else

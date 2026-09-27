@@ -1,4 +1,4 @@
-import { clampQuranPage } from '@/services/quran/reader'
+import { QURAN_MAX_PAGE, clampQuranPage } from '@/services/quran/reader'
 
 export interface QuranVerse {
   id: number
@@ -55,6 +55,7 @@ export interface QuranProvider {
 
 export const LEGACY_QURAN_API_BASE_URL = 'https://api.quran.com/api/v4'
 export const DEFAULT_TRANSLATION_ID = 85
+const LEGACY_PAGE_PAYLOAD_CACHE_LIMIT = 6
 const TRANSLATION_ID_BY_LOCALE: Record<string, number> = {
   de: 27,
   en: 85,
@@ -151,14 +152,14 @@ function mapLegacyWord(word: LegacyApiWord, fallbackPageNumber: number, fallback
 export class LegacyQuranProvider implements QuranProvider {
   private readonly baseUrl: string
   private readonly fetchImpl: FetchLike
+  private readonly pagePayloadCache = new Map<string, LegacyApiResponse>()
 
   constructor(options?: { baseUrl?: string, fetchImpl?: FetchLike }) {
     this.baseUrl = (options?.baseUrl ?? LEGACY_QURAN_API_BASE_URL).replace(/\/+$/, '')
     this.fetchImpl = options?.fetchImpl ?? getDefaultFetchImpl()
   }
 
-  async getPage(request: QuranPageRequest): Promise<QuranPageData> {
-    const pageNumber = clampQuranPage(request.pageNumber)
+  private buildPageUrl(pageNumber: number, request: QuranPageRequest): string {
     const params = new URLSearchParams({
       fields: 'text_uthmani',
       per_page: '50',
@@ -177,10 +178,20 @@ export class LegacyQuranProvider implements QuranProvider {
       )
     }
 
-    const response = await this.fetchImpl(
-      `${this.baseUrl}/verses/by_page/${pageNumber}?${params.toString()}`,
-      { signal: request.signal },
-    )
+    return `${this.baseUrl}/verses/by_page/${pageNumber}?${params.toString()}`
+  }
+
+  private async fetchPagePayload(pageNumber: number, request: QuranPageRequest): Promise<LegacyApiResponse> {
+    const url = this.buildPageUrl(pageNumber, request)
+    const cachedPayload = this.pagePayloadCache.get(url)
+    if (cachedPayload) {
+      // Refresh insertion order so the small cache follows recent navigation.
+      this.pagePayloadCache.delete(url)
+      this.pagePayloadCache.set(url, cachedPayload)
+      return cachedPayload
+    }
+
+    const response = await this.fetchImpl(url, { signal: request.signal })
 
     if (!response.ok) {
       throw new Error(`Failed to load Quran page ${pageNumber} (status ${response.status})`)
@@ -191,30 +202,72 @@ export class LegacyQuranProvider implements QuranProvider {
       throw new Error(`Unexpected Quran response for page ${pageNumber}`)
     }
 
-    const verses = payload.verses
-      .map((verse): QuranVerse | null => {
-        const textUthmani = parseString(verse.text_uthmani).trim()
-        const verseKey = parseString(verse.verse_key).trim()
-        const mappedWords = Array.isArray(verse.words)
-          ? verse.words.map((word) => mapLegacyWord(word, pageNumber, verseKey))
-          : []
-        const words = request.includeMushafWords
-          ? mappedWords.filter((word) => word.lineNumber > 0 && word.pageNumber > 0)
-          : []
-        if (!textUthmani && words.length === 0) return null
+    this.pagePayloadCache.set(url, payload)
+    while (this.pagePayloadCache.size > LEGACY_PAGE_PAYLOAD_CACHE_LIMIT) {
+      const oldestKey = this.pagePayloadCache.keys().next().value
+      if (typeof oldestKey !== 'string') break
+      this.pagePayloadCache.delete(oldestKey)
+    }
 
-        const translationText = parseString(verse.translations?.[0]?.text).trim()
-        return {
-          id: parseNumber(verse.id, 0),
-          verseKey,
-          verseNumber: parseNumber(verse.verse_number, 0),
-          pageNumber: parseNumber(verse.page_number, pageNumber),
-          textUthmani: textUthmani || words.map((word) => word.textUthmani).join(' ').trim(),
-          translation: translationText ? stripHtmlTags(translationText) : null,
-          words,
+    return payload
+  }
+
+  async getPage(request: QuranPageRequest): Promise<QuranPageData> {
+    const pageNumber = clampQuranPage(request.pageNumber)
+    const sourcePageNumbers = request.includeMushafWords
+      ? [pageNumber, pageNumber - 1, pageNumber + 1]
+          .filter((sourcePage, index, pages) =>
+            sourcePage >= 1 && sourcePage <= QURAN_MAX_PAGE && pages.indexOf(sourcePage) === index)
+      : [pageNumber]
+    const payloads = await Promise.all(
+      sourcePageNumbers.map((sourcePageNumber) => this.fetchPagePayload(sourcePageNumber, request)),
+    )
+
+    // The legacy endpoint selects verses using its default page mapping even
+    // when `mushaf=1` supplies QCF-v2 word positions. Around some boundaries,
+    // words therefore move to an adjacent QCF-v2 page. Merge the neighbouring
+    // legacy pages and retain only words that really belong to this page.
+    const versesByKey = new Map<string, QuranVerse>()
+    for (const payload of payloads) {
+      const mappedVerses = (payload.verses ?? [])
+        .map((verse): QuranVerse | null => {
+          const textUthmani = parseString(verse.text_uthmani).trim()
+          const verseKey = parseString(verse.verse_key).trim()
+          const mappedWords = Array.isArray(verse.words)
+            ? verse.words.map((word) => mapLegacyWord(word, pageNumber, verseKey))
+            : []
+          const words = request.includeMushafWords
+            ? mappedWords.filter((word) =>
+                word.lineNumber > 0 && word.pageNumber === pageNumber)
+            : []
+          if (request.includeMushafWords && words.length === 0) return null
+          if (!textUthmani && words.length === 0) return null
+
+          const translationText = parseString(verse.translations?.[0]?.text).trim()
+          return {
+            id: parseNumber(verse.id, 0),
+            verseKey,
+            verseNumber: parseNumber(verse.verse_number, 0),
+            pageNumber: request.includeMushafWords
+              ? pageNumber
+              : parseNumber(verse.page_number, pageNumber),
+            textUthmani: textUthmani || words.map((word) => word.textUthmani).join(' ').trim(),
+            translation: translationText ? stripHtmlTags(translationText) : null,
+            words,
+          }
+        })
+        .filter((verse): verse is QuranVerse => verse !== null)
+
+      for (const verse of mappedVerses) {
+        const key = verse.verseKey || String(verse.id)
+        if (!versesByKey.has(key)) {
+          versesByKey.set(key, verse)
         }
-      })
-      .filter((verse): verse is QuranVerse => verse !== null)
+      }
+    }
+
+    const verses = [...versesByKey.values()]
+      .sort((a, b) => a.id - b.id || a.verseNumber - b.verseNumber)
 
     return {
       pageNumber,

@@ -210,4 +210,56 @@ describe('quran mushaf layout', () => {
     expect(layout.lines[9].tokens[0]).toMatchObject({ kind: 'surah', chapterId: 114 })
     expect(layout.lines[10].tokens[0]).toMatchObject({ kind: 'basmala', chapterId: 114 })
   })
+
+  it('keeps Unicode ayah numbers as fallback when QCF page glyphs are present', () => {
+    const page = createPage(604, [
+      createVerse({
+        id: 6225,
+        verseKey: '112:4',
+        verseNumber: 4,
+        pageNumber: 604,
+        words: [createWord({
+          position: 6,
+          lineNumber: 4,
+          pageNumber: 604,
+          charTypeName: 'end',
+          codeV2: 'ﱓ',
+          textQpcHafs: '٤',
+          verseKey: '112:4',
+        })],
+      }),
+      createVerse({
+        id: 6226,
+        verseKey: '113:1',
+        verseNumber: 1,
+        pageNumber: 604,
+        words: [createWord({
+          position: 5,
+          lineNumber: 7,
+          pageNumber: 604,
+          charTypeName: 'end',
+          codeV2: 'ﱘ',
+          textQpcHafs: '١',
+          verseKey: '113:1',
+        })],
+      }),
+    ])
+
+    const layout = buildMushafPageLayout(page)
+    const firstSurahEnd = layout.lines[3].tokens.find((token) => token.kind === 'word')
+    const nextSurahStart = layout.lines[6].tokens.find((token) => token.kind === 'word')
+
+    expect(firstSurahEnd).toMatchObject({
+      kind: 'word',
+      text: '٤',
+      codeV2: 'ﱓ',
+      verseKey: '112:4',
+    })
+    expect(nextSurahStart).toMatchObject({
+      kind: 'word',
+      text: '١',
+      codeV2: 'ﱘ',
+      verseKey: '113:1',
+    })
+  })
 })

@@ -176,6 +176,112 @@ describe('quran provider', () => {
     ])
   })
 
+  it('merges verses whose QCF-v2 words moved from the previous legacy page', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init
+      const url = String(input)
+
+      if (url.includes('/verses/by_page/596?')) {
+        return jsonResponse({
+          verses: [
+            {
+              id: 6109,
+              verse_key: '94:2',
+              verse_number: 2,
+              page_number: 596,
+              text_uthmani: 'وَوَضَعْنَا',
+              words: [{
+                position: 1,
+                line_number: 15,
+                page_number: 596,
+                char_type_name: 'word',
+                code_v2: 'ﱑ',
+                text_qpc_hafs: 'وَوَضَعۡنَا',
+                text_uthmani: 'وَوَضَعْنَا',
+                verse_key: '94:2',
+              }],
+            },
+            {
+              id: 6110,
+              verse_key: '94:3',
+              verse_number: 3,
+              page_number: 596,
+              text_uthmani: 'ٱلَّذِىٓ',
+              words: [{
+                position: 1,
+                line_number: 1,
+                page_number: 597,
+                char_type_name: 'word',
+                code_v2: 'ﱒ',
+                text_qpc_hafs: 'ٱلَّذِيٓ',
+                text_uthmani: 'ٱلَّذِىٓ',
+                verse_key: '94:3',
+              }],
+            },
+          ],
+        })
+      }
+
+      if (url.includes('/verses/by_page/597?')) {
+        return jsonResponse({
+          verses: [{
+            id: 6115,
+            verse_key: '95:1',
+            verse_number: 1,
+            page_number: 597,
+            text_uthmani: 'وَٱلتِّينِ',
+            words: [{
+              position: 1,
+              line_number: 5,
+              page_number: 597,
+              char_type_name: 'word',
+              code_v2: 'ﱓ',
+              text_qpc_hafs: 'وَٱلتِّينِ',
+              text_uthmani: 'وَٱلتِّينِ',
+              verse_key: '95:1',
+            }],
+          }],
+        })
+      }
+
+      return jsonResponse({
+        verses: [{
+          id: 6134,
+          verse_key: '96:13',
+          verse_number: 13,
+          page_number: 597,
+          text_uthmani: 'أَرَءَيْتَ',
+          words: [{
+            position: 1,
+            line_number: 1,
+            page_number: 598,
+            char_type_name: 'word',
+            code_v2: 'ﱔ',
+            text_qpc_hafs: 'أَرَءَيۡتَ',
+            text_uthmani: 'أَرَءَيْتَ',
+            verse_key: '96:13',
+          }],
+        }],
+      })
+    })
+
+    const provider = new LegacyQuranProvider({
+      fetchImpl: fetchMock as unknown as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+    })
+
+    const result = await provider.getPage({
+      pageNumber: 597,
+      locale: 'de',
+      showTranslation: true,
+      includeMushafWords: true,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.verses.map((verse) => verse.verseKey)).toEqual(['94:3', '95:1'])
+    expect(result.verses.every((verse) =>
+      verse.words.every((word) => word.pageNumber === 597))).toBe(true)
+  })
+
   it('throws useful errors for failed and invalid responses', async () => {
     const failedFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
       void _input

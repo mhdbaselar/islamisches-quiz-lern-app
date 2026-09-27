@@ -74,24 +74,20 @@
   }
 
   .quran-reader--single .quran-page {
-    max-width: 56rem;
     margin-inline: auto;
     width: 100%;
-  }
-
-  .quran-reader--single .quran-page__mushaf-grid {
-    height: clamp(24rem, 72vh, 38rem);
-    aspect-ratio: auto;
-  }
-
-  .quran-reader--single .quran-page__mushaf-line {
-    line-height: 1.26;
   }
 
   .quran-page {
     @apply text-card-foreground border p-4;
     border-radius: var(--radius, 0.5rem);
     min-height: 0;
+  }
+
+  @media (min-width: 768px) {
+    .quran-reader--single .quran-page {
+      max-width: calc((100% - 1rem) / 2);
+    }
   }
 
   .quran-page__header {
@@ -350,10 +346,6 @@
 
     .quran-page__header-spacer {
       min-width: 5.5rem;
-    }
-
-    .quran-reader--single .quran-page__mushaf-grid {
-      height: clamp(18rem, 62vh, 26rem);
     }
 
     @supports not (aspect-ratio: 1 / 1) {

@@ -50,8 +50,11 @@ function isLineNumberInRange(lineNumber: number): boolean {
   return Number.isInteger(lineNumber) && lineNumber >= 1 && lineNumber <= MUSHAF_LINE_COUNT
 }
 
-function resolveWordText(word: QuranWord): string {
-  return word.codeV2 || word.textQpcHafs || word.textUthmani
+function resolveFallbackWordText(word: QuranWord): string {
+  // codeV2 contains page-specific private-use glyphs. Those glyphs only make
+  // sense after the matching QCF page font has loaded, so keep a real Unicode
+  // value as the default/fallback text.
+  return word.textQpcHafs || word.textUthmani || word.codeV2
 }
 
 function getFirstWordOfVerse(words: QuranWord[], pageNumber: number): QuranWord | null {
@@ -93,7 +96,7 @@ export function buildMushafPageLayout(
       const targetLine = lines[word.lineNumber - 1]
       targetLine.tokens.push({
         kind: 'word',
-        text: resolveWordText(word),
+        text: resolveFallbackWordText(word),
         codeV2: word.codeV2,
         charTypeName: word.charTypeName,
         verseKey: word.verseKey,

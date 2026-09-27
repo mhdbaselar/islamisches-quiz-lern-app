@@ -55,7 +55,7 @@ function buildPage(request: QuranPageRequest): QuranPageData {
                 lineNumber: 3,
                 pageNumber: request.pageNumber,
                 charTypeName: 'end',
-                codeV2: '',
+                codeV2: 'ﰅ',
                 textQpcHafs: '١',
                 textUthmani: '١',
                 verseKey: '2:1',
@@ -156,6 +156,8 @@ describe('QuranView mushaf rendering', () => {
     expect(getPageMock.mock.calls[0]?.[0]?.includeMushafWords).toBe(true)
     expect(wrapper.findAll('.quran-page__mushaf-line')).toHaveLength(15)
     expect(wrapper.find('.quran-page__mushaf-line--label').text()).toContain('سُورَةُ')
+    expect(wrapper.find('.quran-page__mushaf-grid').text()).toContain('١')
+    expect(wrapper.find('.quran-page__mushaf-grid').text()).not.toContain('ﰅ')
     expect(wrapper.findAll('.quran-page__translation-line').length).toBeGreaterThan(0)
     expect(wrapper.find('.quran-page__header-nav').classes()).toContain('quran-page__header-nav--arabic')
 
