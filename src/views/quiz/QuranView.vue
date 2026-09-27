@@ -449,6 +449,32 @@ function goNext() {
   currentPage.value = getNextQuranPage(currentPage.value, readingMode.value, isMobile.value)
 }
 
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return target.matches('input, textarea, select, [contenteditable="true"]')
+    || Boolean(target.closest('[contenteditable="true"]'))
+}
+
+function handlePageKeydown(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  if (isLoading.value || isEditableKeyboardTarget(event.target)) return
+
+  const shouldGoNext = isArabicReadingMode.value
+    ? event.key === 'ArrowLeft'
+    : event.key === 'ArrowRight'
+
+  if (shouldGoNext) {
+    if (!canGoNext.value) return
+    goNext()
+  } else {
+    if (!canGoPrev.value) return
+    goPrev()
+  }
+
+  event.preventDefault()
+}
+
 function shouldRenderHeaderNav(pageIndex: number): boolean {
   return isSpreadLayout.value || pageIndex === 0
 }
@@ -718,9 +744,10 @@ watch(
 onMounted(() => {
   void ensureUnicodeFont()
 
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return
-  }
+  if (typeof window === 'undefined') return
+  window.addEventListener('keydown', handlePageKeydown)
+
+  if (typeof window.matchMedia !== 'function') return
 
   mediaQueryList = window.matchMedia('(max-width: 900px)')
   syncMobileLayout()
@@ -736,6 +763,10 @@ onBeforeUnmount(() => {
   abortController?.abort()
   chaptersAbortController?.abort()
   warmupAbortController?.abort()
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handlePageKeydown)
+  }
 
   if (!mediaQueryList) return
   if (typeof mediaQueryList.removeEventListener === 'function') {

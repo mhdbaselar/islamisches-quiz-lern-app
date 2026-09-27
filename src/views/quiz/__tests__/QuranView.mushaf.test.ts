@@ -1,7 +1,7 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ar from '@/locales/ar/common'
 import type { QuranChapter, QuranPageData, QuranPageRequest } from '@/services/quran/provider'
 
@@ -26,6 +26,8 @@ vi.mock('@/services/quran/provider', async (importOriginal) => {
 })
 
 import QuranView from '@/views/quiz/QuranView.vue'
+
+enableAutoUnmount(afterEach)
 
 function buildPage(request: QuranPageRequest): QuranPageData {
   return {
@@ -330,5 +332,60 @@ describe('QuranView mushaf rendering', () => {
     expect(persisted.readingMode).toBe('single')
     expect(persisted.textMode).toBe('arabic')
     expect(persisted.showTranslation).toBe(true)
+  })
+
+  it('navigates with arrow keys according to the reading direction', async () => {
+    const i18n = createI18n({
+      legacy: false,
+      locale: 'ar',
+      messages: { ar },
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'quran', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(QuranView, {
+      global: {
+        plugins: [i18n, router],
+        stubs: {
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }))
+    await flushPromises()
+    expect(wrapper.find('.quran-page__mushaf-page-number').text()).toBe('2')
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }))
+    await flushPromises()
+    expect(wrapper.find('.quran-page__mushaf-page-number').text()).toBe('1')
+
+    const standardButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === ar.quran.textModeStandard)
+    expect(standardButton).toBeTruthy()
+    await standardButton!.trigger('click')
+    await flushPromises()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }))
+    await flushPromises()
+    expect(getRenderedPageNumbers(wrapper)).toEqual([2])
+
+    await wrapper.find('#quran-page-input').trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+    expect(getRenderedPageNumbers(wrapper)).toEqual([2])
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }))
+    await flushPromises()
+    expect(getRenderedPageNumbers(wrapper)).toEqual([1])
   })
 })
