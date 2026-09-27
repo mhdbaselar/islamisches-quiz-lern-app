@@ -20,6 +20,7 @@ const UTHMANIC_HAFS_FONT_FAMILY = 'UthmanicHafs'
 const UTHMANIC_HAFS_FONT_URL = 'https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2'
 const QCF_V2_FONT_FAMILY_PREFIX = 'QCFV2Page'
 const QCF_V2_FONT_URL_PREFIX = 'https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p'
+const BISMILLAH_LIGATURE = '﷽'
 
 type QuranTextMode = 'arabic' | 'standard'
 type PersistedQuranViewSettings = {
@@ -910,6 +911,8 @@ onBeforeUnmount(() => {
                   class="quran-page__mushaf-line"
                   :class="{
                     'quran-page__mushaf-line--label': line.tokens.length > 0 && line.tokens[0].kind !== 'word',
+                    'quran-page__mushaf-line--surah': line.tokens[0]?.kind === 'surah',
+                    'quran-page__mushaf-line--basmala': line.tokens[0]?.kind === 'basmala',
                     'quran-page__mushaf-line--words': line.tokens.length > 0 && line.tokens[0].kind === 'word',
                     'quran-page__mushaf-line--empty': line.tokens.length === 0,
                   }"
@@ -927,8 +930,9 @@ onBeforeUnmount(() => {
                           v-else
                           :class="getMushafTokenClass(token)"
                           :style="getMushafTokenStyle(token, pageData.pageNumber)"
+                          :aria-label="token.kind === 'basmala' ? token.text : undefined"
                         >
-                          {{ token.text }}
+                          {{ token.kind === 'basmala' ? BISMILLAH_LIGATURE : token.text }}
                         </span>
                       </template>
                     </span>
